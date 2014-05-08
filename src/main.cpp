@@ -1,26 +1,128 @@
-#include "NeuralNetwork.h"
-#include "Utils.h"
+#include <fstream>
+#include <iostream>
+#include <time.h>
+
+#include <Eigen/Core>
+
+#include "FeedForwardNeuralNetwork.h"
 
 using namespace Eigen;
 using namespace std;
 
+void saveTheta(vector<MatrixXd>& theta, const char* file);
+void loadTheta(vector<MatrixXd>& theta, const char* file);
+
 void parseCsv(string file, bool skipFirstLine, vector<vector<int>>& result);
+const string currentDateTime();
 
 int main()
 {
+	bool optimize = false;
 	vector<vector<int>> set;
 
 	parseCsv("E:\\Machine Learning\\Kaggle\\Digit Recognizer\\train.csv", true, set);
 
-	unsigned int features = set[0].size() - 1;
+	size_t totalSize = set.size();
+	size_t features = set[0].size() - 1;	
+	// int hiddenLayer = 100;
+	double lambda = 3;
 
-	MatrixXd trainingSet(set.size() * 3 / 4, features);
-	VectorXi trainingLabels(set.size() * 3 / 4);
+	if(optimize)
+	{
+		size_t trainingSize = set.size() * 3 / 4;
+		size_t crossValSize = set.size() - trainingSize;
 
-	MatrixXd crossValSet(set.size() * 1 / 4, features);
-	VectorXi crossValLabels(set.size() * 1 / 4);
+		MatrixXd trainingSet(trainingSize, features);
+		VectorXi trainingLabels(trainingSize);
 
-	for(unsigned int i = 0; i < set.size() * 3 / 4 ; i++)
+		MatrixXd crossValSet(crossValSize, features);
+		VectorXi crossValLabels(crossValSize);
+
+		for(unsigned int i = 0; i < trainingSize ; i++)
+		{
+			trainingLabels(i) = set[i][0];
+
+			for(unsigned int j = 1; j < set[i].size(); j++)
+			{
+				trainingSet(i, j - 1) = set[i][j];
+			}
+		}
+
+		for(unsigned int i = 0; i < crossValSize; i++)
+		{
+			crossValLabels(i) = set[i + trainingSize][0];
+
+			for(unsigned int j = 1; j < set[i + trainingSize].size(); j++)
+			{
+				crossValSet(i, j - 1) = set[i + trainingSize][j];
+			}
+		}
+
+		double maxVal = trainingSet.maxCoeff();
+
+		trainingSet = trainingSet / maxVal;
+		crossValSet = crossValSet / maxVal;
+
+		double lambdas[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+		//int hiddenLayers[] = {5, 10, 25, 50, 100};
+		int lambdasSize = sizeof(lambdas) / sizeof(double);
+		//int hiddenLayersSize = sizeof(hiddenLayers) / sizeof(int);
+
+		double maxAcc = -1;		
+		// hiddenLayer = -1;
+		lambda = -1;
+
+		string file = "optimization-" + currentDateTime() + ".out";
+
+		//for(int i = 0; i < hiddenLayersSize; i++)
+		{
+			for(int j = 0; j < lambdasSize; j++)
+			{
+				vector<size_t> layers;
+				//layers.push_back(hiddenLyers[i]);
+				layers.push_back(300);
+				layers.push_back(150);
+				layers.push_back(75);
+				FeedForwardNeuralNetwork nn(features, layers, 10);
+
+				nn.train(trainingSet, trainingLabels, lambdas[j]);
+
+				double acc = (double)nn.predictMany(crossValSet).cwiseEqual(crossValLabels).count() / crossValSet.rows();
+
+				ofstream optimizeFile(file, std::ofstream::app);
+
+				for(int l = 0; l < layers.size() - 1; l++)
+				{
+					optimizeFile << layers[l] << "-";
+				}
+
+				optimizeFile << layers[layers.size() - 1] << ";" << lambdas[j] << ";" << acc << endl;
+
+				optimizeFile.close();
+
+				if(acc > maxAcc)
+				{
+					maxAcc = acc;
+					// hiddenLayer = hiddenLayers[i];
+					lambda = lambdas[j];
+
+				}
+			}
+		}
+	}
+
+	vector<size_t> layers;
+	//layers.push_back(hiddenLayer);
+	//layers.push_back(300);
+	//layers.push_back(150);
+	//layers.push_back(75);
+	layers.push_back(25);
+	FeedForwardNeuralNetwork nn(features, layers, (size_t)10);
+
+	MatrixXd trainingSet(set.size(), features);
+	VectorXi trainingLabels(set.size());
+
+	for(unsigned int i = 0; i < set.size() ; i++)
 	{
 		trainingLabels(i) = set[i][0];
 
@@ -30,57 +132,9 @@ int main()
 		}
 	}
 
-	for(unsigned int i = set.size() * 3 / 4; i < set.size(); i++)
-	{
-		crossValLabels(i - set.size() * 3 / 4) = set[i][0];
-
-		for(unsigned int j = 1; j < set[i].size(); j++)
-		{
-			crossValSet(i - set.size() * 3 / 4, j - 1) = set[i][j];
-		}
-	}
-
 	double maxVal = trainingSet.maxCoeff();
 
 	trainingSet = trainingSet / maxVal;
-	crossValSet = crossValSet / maxVal;
-
-	double lambdas[] = {0.03, 0.1, 0.3, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-	int hiddenLayers[] = {5, 25, 50, 100};
-	int lambdasSize = sizeof(lambdas) / sizeof(double);
-	int hiddenLayersSize = sizeof(hiddenLayers) / sizeof(int);
-
-	double maxAcc = -1;
-	double lambda = -1;
-	int hiddenLayer = -1;
-
-	for(int i = 0; i < lambdasSize; i++)
-	{
-		for(int j = 0; j < hiddenLayersSize; j++)
-		{
-			vector<unsigned int> layers;
-			layers.push_back(hiddenLayers[j]);
-			NeuralNetwork nn(features, layers, 10);
-
-			nn.train(trainingSet, trainingLabels, lambdas[i]);
-
-			VectorXi predictions = nn.predictMany(crossValSet);
-			double acc = (double)predictions.cwiseEqual(crossValLabels).sum() / predictions.rows();
-
-			cout << lambdas[i] << "," << hiddenLayers[j] << "," << acc << endl;
-
-			if(acc > maxAcc)
-			{
-				maxAcc = acc;
-				lambda = lambdas[i];
-				hiddenLayer = hiddenLayers[j];
-			}
-		}
-	}
-	
-	vector<unsigned int> layers;
-	layers.push_back(hiddenLayer);
-	NeuralNetwork nn(features, layers, 10);
 
 	nn.train(trainingSet, trainingLabels, lambda);
 
@@ -100,14 +154,71 @@ int main()
 
 	VectorXi predictions = nn.predictMany(testSet);
 
-	cout << "ImageId,Label" << endl;
+	stringstream ss;
+
+	ss << "output" << "-";
+
+	for(int l = 0; l < layers.size() - 1; l++)
+	{
+		ss << layers[l] << ".";
+	}
+
+	ss << layers[layers.size() - 1] << "-" << lambda << ".out";
+
+	ofstream outputFile(ss.str(), std::ofstream::app);
+	
+	outputFile << "ImageId,Label" << endl;
 
 	for(unsigned int i = 0; i < predictions.rows(); i++)
 	{
-		cout << i + 1 << "," << predictions(i) << endl;
+		outputFile << i + 1 << "," << predictions(i) << endl;
 	}
 
+	outputFile.close();
+
 	return 0;
+}
+
+void saveTheta(vector<MatrixXd>& theta, const char* file)
+{
+	std::ofstream f(file, std::ios::binary);
+
+	for(unsigned int i = 0; i < theta.size(); i++)
+	{
+		Eigen::MatrixXd::Index rows, cols;
+		rows = theta[i].rows();
+		cols = theta[i].cols();
+
+		f.write((char *)&rows, sizeof(rows));
+		f.write((char *)&cols, sizeof(cols));
+		f.write((char *)theta[i].data(), sizeof(Eigen::MatrixXd::Scalar) * rows * cols);
+	}
+
+	f.close();
+}
+
+void loadTheta(vector<MatrixXd>& theta, const char* file)
+{
+	std::ifstream f(file, std::ios::binary);
+
+	for(unsigned int i = 0; i < theta.size(); i++)
+	{
+		Eigen::MatrixXd::Index rows, cols;
+	
+		f.read((char *)&rows, sizeof(rows));
+		f.read((char *)&cols, sizeof(cols));
+
+		theta[i].resize(rows, cols);
+
+		f.read((char *)theta[i].data(), sizeof(Eigen::MatrixXd::Scalar) * rows * cols);
+
+		if (f.bad())
+		{
+			throw "Error reading matrix";
+		}
+	}
+
+	f.close();
 }
 
 void parseCsv(string file, bool skipFirstLine, vector<vector<int>>& result)
@@ -134,4 +245,16 @@ void parseCsv(string file, bool skipFirstLine, vector<vector<int>>& result)
 
 		result.push_back(currentLine);
 	}
+}
+
+const string currentDateTime()
+{
+	time_t     now = time(0);
+    struct tm  tstruct;
+    char       buf[80];
+    tstruct = *localtime(&now);
+    
+    strftime(buf, sizeof(buf), "%Y%m%d%H%M%S", &tstruct);
+
+    return buf;
 }
