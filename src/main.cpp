@@ -22,7 +22,7 @@ int main()
 	bool optimize = false;
 	vector<vector<int>> set;
 
-	parseCsv("E:\\Machine Learning\\Kaggle\\Digit Recognizer\\train.csv", true, set);
+	parseCsv("train.csv", true, set);
 
 	size_t totalSize = set.size();
 	size_t features = set[0].size() - 1;	
@@ -118,7 +118,7 @@ int main()
 	//layers.push_back(300);
 	//layers.push_back(150);
 	//layers.push_back(75);
-	layers.push_back(25);
+	layers.push_back(75);
 	size_t classes = 10;
 	FeedForwardNeuralNetwork nn(features, layers, classes);
 
@@ -141,7 +141,7 @@ int main()
 
 	nn.train(trainingSet, trainingLabels, Eigen::LBFGS(50), Eigen::ObjectiveDelta(1e-7, 100).verbose(printIteration), lambda);
 
-	parseCsv("E:\\Machine Learning\\Kaggle\\Digit Recognizer\\test.csv", true, set);
+	parseCsv("test.csv", true, set);
 
 	MatrixXd testSet(set.size(), features);
 
