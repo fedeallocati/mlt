@@ -5,13 +5,13 @@ FeedForwardNeuralNetwork::FeedForwardNeuralNetwork(size_t inputLayer, std::vecto
 	this->init(inputLayer, outputLayer, hiddenLayers);
 }
 
-FeedForwardNeuralNetwork::FeedForwardNeuralNetwork(size_t inputLayer, std::vector<size_t> hiddenLayers , size_t outputLayer, std::vector<Eigen::MatrixXd> trainedTheta)	
+FeedForwardNeuralNetwork::FeedForwardNeuralNetwork(size_t inputLayer, std::vector<size_t> hiddenLayers , size_t outputLayer, std::vector<Eigen::MatrixXd> theta)	
 {
 	this->init(inputLayer, outputLayer, hiddenLayers);
-	this->trainedTheta = trainedTheta;
+	this->theta = theta;
 }
 
-void FeedForwardNeuralNetwork::train(const Eigen::MatrixXd& trainingSet, const Eigen::VectorXi& labels, double lambda)
+void FeedForwardNeuralNetwork::train(const Eigen::MatrixXd& trainingSet, const Eigen::VectorXi& labels, Eigen::SearchStrategy& searchStrategy, Eigen::StopStrategy& stopStrategy, double lambda)
 {
 	size_t m = trainingSet.rows();
 
@@ -38,37 +38,34 @@ void FeedForwardNeuralNetwork::train(const Eigen::MatrixXd& trainingSet, const E
 	
 	size_t size = 0;
 
-	for (int i = 0; i < this->trainedTheta.size(); i++)
+	for (int i = 0; i < this->theta.size(); i++)
 	{
-		size += this->trainedTheta[i].size();
+		size += this->theta[i].size();
 	}	
 
 	Eigen::VectorXd params(size);
 
 	size_t counter = 0;
 
-	for (unsigned int i = 0; i < this->trainedTheta.size(); i++)
-	{
-		for(unsigned int j = 0; j < this->trainedTheta[i].size(); j++)
-		{		
-			params(j + counter) = this->trainedTheta[i].data()[j];
-		}
-
-		counter += this->trainedTheta[i].size();
+	for (size_t i = 0; i < this->theta.size(); i++)
+	{		
+		params.block(counter, 0, this->theta[i].size(), 1) = Eigen::VectorXd::Map(this->theta[i].data(), this->theta[i].size());
+		
+		counter += this->theta[i].size();
 	}
 
-	FindMin(Eigen::LBFGS(50), Eigen::ObjectiveDelta(1e-7, 100), BackpropNNCost(this->layers, x, y, lambda), BackpropNNGradient(this->layers, x, y, lambda), params, -1);
+	FindMin(searchStrategy, stopStrategy, BackpropNNCost(this->layers, x, y, lambda), BackpropNNGradient(this->layers, x, y, lambda), params, -1);
 
 	counter = 0;
 
-	for(unsigned int i = 0; i < this->trainedTheta.size(); i++)
+	for(unsigned int i = 0; i < this->theta.size(); i++)
 	{
-		for(unsigned int j = 0; j < this->trainedTheta[i].size(); j++)
+		for(unsigned int j = 0; j < this->theta[i].size(); j++)
 		{
-			this->trainedTheta[i].data()[j] = params(counter + j);
+			this->theta[i].data()[j] = params(counter + j);
 		}
 
-		counter += this->trainedTheta[i].size();
+		counter += this->theta[i].size();
 	}
 }
 
@@ -78,7 +75,7 @@ Eigen::VectorXi FeedForwardNeuralNetwork::predictMany(const Eigen::MatrixXd& fea
 	input.block(0, 1, features.rows(), features.cols()) = features;
 	input.col(0) = Eigen::VectorXd::Ones(features.rows());
 
-	confidences = feedForward(this->trainedTheta, input);
+	confidences = feedForward(this->theta, input);
 	Eigen::VectorXi prediction(confidences.cols());
 
 	for(unsigned int i = 0; i < confidences.cols(); i++)
@@ -108,7 +105,7 @@ Eigen::VectorXi FeedForwardNeuralNetwork::predictMany(const Eigen::MatrixXd& fea
 unsigned int FeedForwardNeuralNetwork::predictOne(const Eigen::VectorXd& features, Eigen::VectorXd& confidence)
 {
 	Eigen::MatrixXd confidences = confidence;
-
+	
 	unsigned int pred = this->predictMany(features.transpose(), confidences)(0);
 	confidence = confidences.col(0);
 
@@ -123,7 +120,7 @@ unsigned int FeedForwardNeuralNetwork::predictOne(const Eigen::VectorXd& feature
 
 const std::vector<Eigen::MatrixXd>& FeedForwardNeuralNetwork::getTheta() const
 {
-	return this->trainedTheta;
+	return this->theta;
 }
 
 Eigen::MatrixXd FeedForwardNeuralNetwork::feedForward(const std::vector<Eigen::MatrixXd>& theta, const Eigen::MatrixXd& input)
@@ -296,12 +293,12 @@ void FeedForwardNeuralNetwork::init(size_t inputLayer, size_t outputLayer, std::
 
 void FeedForwardNeuralNetwork::initializeRandWeights()
 {
-	this->trainedTheta.clear();
+	this->theta.clear();
 	
 	double epsilonInit = 0.12;
 
 	for(unsigned int i = 1; i < this->layers.size(); i++)
 	{
-		this->trainedTheta.push_back(Eigen::MatrixXd::Random(this->layers[i], this->layers[i - 1] + 1) * epsilonInit);		
+		this->theta.push_back(Eigen::MatrixXd::Random(this->layers[i], this->layers[i - 1] + 1) * epsilonInit);		
 	}
 }

@@ -1,0 +1,3 @@
+[submodule "include/EigenOptimization"]
+	path = include/EigenOptimization
+	url = https://github.com/fallocati/EigenOptimization.git

@@ -15,6 +15,8 @@ void loadTheta(vector<MatrixXd>& theta, const char* file);
 void parseCsv(string file, bool skipFirstLine, vector<vector<int>>& result);
 const string currentDateTime();
 
+void printIteration(unsigned long iter, const Eigen::VectorXd& x, double value, const Eigen::VectorXd& gradient);
+
 int main()
 {
 	bool optimize = false;
@@ -85,7 +87,7 @@ int main()
 				layers.push_back(75);
 				FeedForwardNeuralNetwork nn(features, layers, 10);
 
-				nn.train(trainingSet, trainingLabels, lambdas[j]);
+				nn.train(trainingSet, trainingLabels, Eigen::LBFGS(50), Eigen::ObjectiveDelta(1e-7, 100), lambdas[j]);
 
 				double acc = (double)nn.predictMany(crossValSet).cwiseEqual(crossValLabels).count() / crossValSet.rows();
 
@@ -117,7 +119,8 @@ int main()
 	//layers.push_back(150);
 	//layers.push_back(75);
 	layers.push_back(25);
-	FeedForwardNeuralNetwork nn(features, layers, (size_t)10);
+	size_t classes = 10;
+	FeedForwardNeuralNetwork nn(features, layers, classes);
 
 	MatrixXd trainingSet(set.size(), features);
 	VectorXi trainingLabels(set.size());
@@ -136,7 +139,7 @@ int main()
 
 	trainingSet = trainingSet / maxVal;
 
-	nn.train(trainingSet, trainingLabels, lambda);
+	nn.train(trainingSet, trainingLabels, Eigen::LBFGS(50), Eigen::ObjectiveDelta(1e-7, 100).verbose(printIteration), lambda);
 
 	parseCsv("E:\\Machine Learning\\Kaggle\\Digit Recognizer\\test.csv", true, set);
 
@@ -257,4 +260,9 @@ const string currentDateTime()
     strftime(buf, sizeof(buf), "%Y%m%d%H%M%S", &tstruct);
 
     return buf;
+}
+
+void printIteration(unsigned long iter, const Eigen::VectorXd& x, double value, const Eigen::VectorXd& gradient)
+{
+	std::cout << "iteration: " << iter << "   objective: " << value << std::endl;
 }
