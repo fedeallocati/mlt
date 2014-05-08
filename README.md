@@ -1,4 +1,4 @@
-BackpropNN
-==========
+FeedForwardNN
+=============
 
-General purpose Back Propagation Neural Network
+General purpose Feed-Forward Neural Network
