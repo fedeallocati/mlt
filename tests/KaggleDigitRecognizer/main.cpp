@@ -12,15 +12,18 @@ using namespace std;
 void saveTheta(vector<MatrixXd>& theta, const char* file);
 void loadTheta(vector<MatrixXd>& theta, const char* file);
 
-void parseCsv(string file, bool skipFirstLine, vector<vector<int>>& result);
+void parseCsv(string file, bool skipFirstLine, vector<vector<int> >& result);
 const string currentDateTime();
 
 void printIteration(unsigned long iter, const Eigen::VectorXd& x, double value, const Eigen::VectorXd& gradient);
 
 int main()
 {
+	cout << "#Threads: " << Eigen::nbThreads() << endl;
+	cout << "SIMD Instruction Sets In Use: " << Eigen::SimdInstructionSetsInUse() << endl;	
+
 	bool optimize = false;
-	vector<vector<int>> set;
+	vector<vector<int> > set;
 
 	parseCsv("train.csv", true, set);
 
@@ -28,6 +31,9 @@ int main()
 	size_t features = set[0].size() - 1;	
 	// int hiddenLayer = 100;
 	double lambda = 3;
+
+	LBFGS searchStrategy(50);
+	ObjectiveDelta stopStrategy(1e-7, 100);
 
 	if(optimize)
 	{
@@ -87,11 +93,11 @@ int main()
 				layers.push_back(75);
 				FeedForwardNeuralNetwork nn(features, layers, 10);
 
-				nn.train(trainingSet, trainingLabels, Eigen::LBFGS(50), Eigen::ObjectiveDelta(1e-7, 100), lambdas[j]);
+				nn.train(trainingSet, trainingLabels, searchStrategy, stopStrategy, lambdas[j]);
 
 				double acc = (double)nn.predictMany(crossValSet).cwiseEqual(crossValLabels).count() / crossValSet.rows();
 
-				ofstream optimizeFile(file, std::ofstream::app);
+				ofstream optimizeFile(file.c_str(), std::ofstream::app);
 
 				for(int l = 0; l < layers.size() - 1; l++)
 				{
@@ -118,7 +124,7 @@ int main()
 	//layers.push_back(300);
 	//layers.push_back(150);
 	//layers.push_back(75);
-	layers.push_back(75);
+	layers.push_back(25);
 	size_t classes = 10;
 	FeedForwardNeuralNetwork nn(features, layers, classes);
 
@@ -139,7 +145,7 @@ int main()
 
 	trainingSet = trainingSet / maxVal;
 
-	nn.train(trainingSet, trainingLabels, Eigen::LBFGS(50), Eigen::ObjectiveDelta(1e-7, 100).verbose(printIteration), lambda);
+	nn.train(trainingSet, trainingLabels, searchStrategy, stopStrategy.verbose(printIteration), lambda);
 
 	parseCsv("test.csv", true, set);
 
@@ -168,7 +174,7 @@ int main()
 
 	ss << layers[layers.size() - 1] << "-" << lambda << ".out";
 
-	ofstream outputFile(ss.str(), std::ofstream::app);
+	ofstream outputFile(ss.str().c_str(), std::ofstream::app);
 	
 	outputFile << "ImageId,Label" << endl;
 
@@ -224,10 +230,10 @@ void loadTheta(vector<MatrixXd>& theta, const char* file)
 	f.close();
 }
 
-void parseCsv(string file, bool skipFirstLine, vector<vector<int>>& result)
+void parseCsv(string file, bool skipFirstLine, vector<vector<int> >& result)
 {
 	result.clear();
-	ifstream str = ifstream(file);
+	ifstream str(file.c_str());
     string line;
 
 	if(skipFirstLine)
