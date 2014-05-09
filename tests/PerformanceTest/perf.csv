@@ -1,3 +1,0 @@
-openmp;threads;simd;optimization;time
-yes;4;SSE4.2;O2;171624425937
-no;4;SSE4.2;

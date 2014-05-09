@@ -4,7 +4,7 @@
 
 #include <Eigen/Core>
 
-#include "FeedForwardNeuralNetwork.h"
+#include "../src/FeedForwardNeuralNetwork.h"
 
 using namespace Eigen;
 using namespace std;
