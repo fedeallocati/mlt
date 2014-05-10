@@ -99,7 +99,7 @@ int main()
 
 				ofstream optimizeFile(file.c_str(), std::ofstream::app);
 
-				for(int l = 0; l < layers.size() - 1; l++)
+				for (size_t l = 0; l < layers.size() - 1; l++)
 				{
 					optimizeFile << layers[l] << "-";
 				}
@@ -151,9 +151,9 @@ int main()
 
 	MatrixXd testSet(set.size(), features);
 
-	for(unsigned int i = 0; i < set.size(); i++)
+	for (size_t i = 0; i < set.size(); i++)
 	{
-		for(unsigned int j = 0; j < set[i].size(); j++)
+		for (size_t j = 0; j < set[i].size(); j++)
 		{
 			testSet(i, j) = set[i][j];
 		}
@@ -167,7 +167,7 @@ int main()
 
 	ss << "output" << "-";
 
-	for(int l = 0; l < layers.size() - 1; l++)
+	for (size_t l = 0; l < layers.size() - 1; l++)
 	{
 		ss << layers[l] << ".";
 	}
@@ -178,7 +178,7 @@ int main()
 	
 	outputFile << "ImageId,Label" << endl;
 
-	for(unsigned int i = 0; i < predictions.rows(); i++)
+	for (size_t i = 0; i < predictions.rows(); i++)
 	{
 		outputFile << i + 1 << "," << predictions(i) << endl;
 	}
@@ -192,7 +192,7 @@ void saveTheta(vector<MatrixXd>& theta, const char* file)
 {
 	std::ofstream f(file, std::ios::binary);
 
-	for(unsigned int i = 0; i < theta.size(); i++)
+	for (size_t i = 0; i < theta.size(); i++)
 	{
 		Eigen::MatrixXd::Index rows, cols;
 		rows = theta[i].rows();

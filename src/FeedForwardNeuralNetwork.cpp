@@ -38,7 +38,7 @@ void FeedForwardNeuralNetwork::train(const Eigen::MatrixXd& trainingSet, const E
 	
 	size_t size = 0;
 
-	for (int i = 0; i < this->theta.size(); i++)
+	for (size_t i = 0; i < this->theta.size(); i++)
 	{
 		size += this->theta[i].size();
 	}	
@@ -58,9 +58,9 @@ void FeedForwardNeuralNetwork::train(const Eigen::MatrixXd& trainingSet, const E
 
 	counter = 0;
 
-	for(unsigned int i = 0; i < this->theta.size(); i++)
+	for (size_t i = 0; i < this->theta.size(); i++)
 	{
-		for(unsigned int j = 0; j < this->theta[i].size(); j++)
+		for (size_t j = 0; j < this->theta[i].size(); j++)
 		{
 			this->theta[i].data()[j] = params(counter + j);
 		}
@@ -78,7 +78,7 @@ Eigen::VectorXi FeedForwardNeuralNetwork::predictMany(const Eigen::MatrixXd& fea
 	confidences = feedForward(this->theta, input);
 	Eigen::VectorXi prediction(confidences.cols());
 
-	for(unsigned int i = 0; i < confidences.cols(); i++)
+	for (size_t i = 0; i < confidences.cols(); i++)
 	{
 		Eigen::MatrixXd::Index maxRow, maxCol;
 		double max = confidences.col(i).maxCoeff(&maxRow, &maxCol);
@@ -182,7 +182,7 @@ double FeedForwardNeuralNetwork::BackpropNNCost::operator()(const Eigen::VectorX
 	{
 		Eigen::MatrixXd curr(this->layers[i], this->layers[i - 1] + 1);
 
-		for(unsigned int j = 0; j < curr.size(); j++)
+		for (size_t j = 0; j < curr.size(); j++)
 		{
 			curr.data()[j] = params(counter + j);
 		}
@@ -223,7 +223,7 @@ Eigen::VectorXd FeedForwardNeuralNetwork::BackpropNNGradient::operator()(const E
 	{
 		Eigen::MatrixXd curr(this->layers[i], this->layers[i - 1] + 1);
 
-		for(unsigned int j = 0; j < curr.size(); j++)
+		for (size_t j = 0; j < curr.size(); j++)
 		{
 			curr.data()[j] = params(counter + j);
 		}
@@ -239,7 +239,7 @@ Eigen::VectorXd FeedForwardNeuralNetwork::BackpropNNGradient::operator()(const E
 	
 	std::vector<Eigen::MatrixXd> grads = backPropagate(theta, y, z, a);
 
-	for(int i = 0; i < grads.size(); i++)
+	for (size_t i = 0; i < grads.size(); i++)
 	{		
 		Eigen::MatrixXd temp = theta[i] * (this->lambda / y.cols());
 		temp.col(0) = Eigen::VectorXd::Zero(temp.rows());		
@@ -261,7 +261,7 @@ Eigen::VectorXd FeedForwardNeuralNetwork::BackpropNNGradient::operator()(const E
 
 	for(size_t i = 0; i < grads.size() ; i++)
 	{
-		for(unsigned int j = 0; j < grads[i].size(); j++)
+		for (size_t j = 0; j < grads[i].size(); j++)
 		{		
 			gradsPlain(j + counter) = grads[i].data()[j];
 		}
