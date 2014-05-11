@@ -5,6 +5,7 @@
 #include <Eigen/Core>
 
 #include "../../Components/FeedForwardNeuralNetwork/FeedForwardNeuralNetwork.h"
+#include "../../Components/PrincipalComponentAnalysis/PrincipalComponentAnalysis.h"
 
 using namespace Eigen;
 using namespace std;
@@ -25,15 +26,15 @@ int main()
 	bool optimize = false;
 	vector<vector<int> > set;
 
-	parseCsv("train.csv", true, set);
+	parseCsv("E:\\Machine Learning\\Kaggle\\Digit Recognizer\\train.csv", true, set);
 
 	size_t totalSize = set.size();
-	size_t features = set[0].size() - 1;	
+	size_t features = set[0].size() - 1;
 	// int hiddenLayer = 100;
 	double lambda = 3;
 
 	LBFGS searchStrategy(50);
-	ObjectiveDelta stopStrategy(1e-7, 100);
+	ObjectiveDelta stopStrategy(1e-7, 500);
 
 	if(optimize)
 	{
@@ -119,15 +120,10 @@ int main()
 		}
 	}
 
-	vector<size_t> layers;
-	//layers.push_back(hiddenLayer);
-	//layers.push_back(300);
-	//layers.push_back(150);
-	//layers.push_back(75);
-	layers.push_back(25);
+	vector<size_t> layers;	
+	layers.push_back(150);
 	size_t classes = 10;
-	FeedForwardNeuralNetwork nn(features, layers, classes);
-
+	
 	MatrixXd trainingSet(set.size(), features);
 	VectorXi trainingLabels(set.size());
 
@@ -137,17 +133,24 @@ int main()
 
 		for(unsigned int j = 1; j < set[i].size(); j++)
 		{
-			trainingSet(i, j - 1) = set[i][j];
+			trainingSet(i, j - 1) = set[i][j] - 128;
 		}
 	}
 
 	double maxVal = trainingSet.maxCoeff();
-
+	
 	trainingSet = trainingSet / maxVal;
 
-	nn.train(trainingSet, trainingLabels, searchStrategy, stopStrategy.verbose(printIteration), lambda);
+	PrincipalComponentAnalysis pca(trainingSet);
 
-	parseCsv("test.csv", true, set);
+	MatrixXd projected = pca.projectData(trainingSet);
+
+	cout << "Principal Components: " << projected.cols() << endl;
+
+	FeedForwardNeuralNetwork nn(projected.cols(), layers, classes);
+	nn.train(projected, trainingLabels, searchStrategy, stopStrategy.verbose(printIteration), lambda);
+
+	parseCsv("E:\\Machine Learning\\Kaggle\\Digit Recognizer\\test.csv", true, set);
 
 	MatrixXd testSet(set.size(), features);
 
@@ -155,13 +158,13 @@ int main()
 	{
 		for (size_t j = 0; j < set[i].size(); j++)
 		{
-			testSet(i, j) = set[i][j];
+			testSet(i, j) = set[i][j] - 128;
 		}
 	}
 
 	testSet = testSet / maxVal;
 
-	VectorXi predictions = nn.predictMany(testSet);
+	VectorXi predictions = nn.predictMany(pca.projectData(testSet));
 
 	stringstream ss;
 
