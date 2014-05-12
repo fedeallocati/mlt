@@ -21,20 +21,17 @@ void printIteration(unsigned long iter, const Eigen::VectorXd& x, double value, 
 int main()
 {
 	cout << "#Threads: " << Eigen::nbThreads() << endl;
-	cout << "SIMD Instruction Sets In Use: " << Eigen::SimdInstructionSetsInUse() << endl;	
+	cout << "SIMD Instruction Sets In Use: " << Eigen::SimdInstructionSetsInUse() << endl;
 
-	bool optimize = false;
+	bool optimize = true;
 	vector<vector<int> > set;
 
 	parseCsv("E:\\Machine Learning\\Kaggle\\Digit Recognizer\\train.csv", true, set);
 
 	size_t totalSize = set.size();
 	size_t features = set[0].size() - 1;
-	// int hiddenLayer = 100;
+	int hiddenLayer = 200;
 	double lambda = 3;
-
-	LBFGS searchStrategy(50);
-	ObjectiveDelta stopStrategy(1e-7, 500);
 
 	if(optimize)
 	{
@@ -53,7 +50,7 @@ int main()
 
 			for(unsigned int j = 1; j < set[i].size(); j++)
 			{
-				trainingSet(i, j - 1) = set[i][j];
+				trainingSet(i, j - 1) = set[i][j] - 128;
 			}
 		}
 
@@ -63,40 +60,45 @@ int main()
 
 			for(unsigned int j = 1; j < set[i + trainingSize].size(); j++)
 			{
-				crossValSet(i, j - 1) = set[i + trainingSize][j];
+				crossValSet(i, j - 1) = set[i + trainingSize][j] - 128;
 			}
 		}
 
-		double maxVal = trainingSet.maxCoeff();
+		double maxVal = 255;
 
 		trainingSet = trainingSet / maxVal;
 		crossValSet = crossValSet / maxVal;
 
-		double lambdas[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-		//int hiddenLayers[] = {5, 10, 25, 50, 100};
-		int lambdasSize = sizeof(lambdas) / sizeof(double);
-		//int hiddenLayersSize = sizeof(hiddenLayers) / sizeof(int);
+		PrincipalComponentAnalysis pca(trainingSet);
 
-		double maxAcc = -1;		
-		// hiddenLayer = -1;
+		MatrixXd projectedTrainingSet = pca.projectData(trainingSet);
+		MatrixXd projectedCrossValSet = pca.projectData(crossValSet);
+
+		double lambdas[] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+		int hiddenLayers[] = {100, 200, 300};
+		int lambdasSize = sizeof(lambdas) / sizeof(double);
+		int hiddenLayersSize = sizeof(hiddenLayers) / sizeof(int);
+
+		double maxHit = -1;
+		hiddenLayer = -1;
 		lambda = -1;
 
 		string file = "optimization-" + currentDateTime() + ".out";
 
-		//for(int i = 0; i < hiddenLayersSize; i++)
+		for(int i = 0; i < hiddenLayersSize; i++)
 		{
 			for(int j = 0; j < lambdasSize; j++)
 			{
 				vector<size_t> layers;
-				//layers.push_back(hiddenLyers[i]);
-				layers.push_back(300);
-				layers.push_back(150);
-				layers.push_back(75);
-				FeedForwardNeuralNetwork nn(features, layers, 10);
+				layers.push_back(hiddenLayers[i]);				
+				FeedForwardNeuralNetwork nn(projectedTrainingSet.cols(), layers, 10);
 
-				nn.train(trainingSet, trainingLabels, searchStrategy, stopStrategy, lambdas[j]);
+				LBFGS searchStrategy(50);
+				ObjectiveDelta stopStrategy(1e-7, 250);
 
-				double acc = (double)nn.predictMany(crossValSet).cwiseEqual(crossValLabels).count() / crossValSet.rows();
+				nn.train(projectedTrainingSet, trainingLabels, searchStrategy, stopStrategy.verbose(printIteration), lambdas[j]);
+
+				size_t hit = nn.predictMany(projectedCrossValSet).cwiseEqual(crossValLabels).count();
 
 				ofstream optimizeFile(file.c_str(), std::ofstream::app);
 
@@ -105,25 +107,23 @@ int main()
 					optimizeFile << layers[l] << "-";
 				}
 
-				optimizeFile << layers[layers.size() - 1] << ";" << lambdas[j] << ";" << acc << endl;
+				optimizeFile << hiddenLayers[i] << ";" << lambdas[j] << ";" << hit << endl;
 
 				optimizeFile.close();
 
-				if(acc > maxAcc)
+				if(hit > maxHit)
 				{
-					maxAcc = acc;
-					// hiddenLayer = hiddenLayers[i];
+					maxHit = hit;
+					hiddenLayer = hiddenLayers[i];
 					lambda = lambdas[j];
-
 				}
 			}
 		}
 	}
 
 	vector<size_t> layers;	
-	layers.push_back(150);
-	size_t classes = 10;
-	
+	layers.push_back(hiddenLayer);
+		
 	MatrixXd trainingSet(set.size(), features);
 	VectorXi trainingLabels(set.size());
 
@@ -144,10 +144,10 @@ int main()
 	PrincipalComponentAnalysis pca(trainingSet);
 
 	MatrixXd projected = pca.projectData(trainingSet);
-
-	cout << "Principal Components: " << projected.cols() << endl;
-
-	FeedForwardNeuralNetwork nn(projected.cols(), layers, classes);
+		
+	FeedForwardNeuralNetwork nn(projected.cols(), layers, 10);
+	LBFGS searchStrategy(50);
+	ObjectiveDelta stopStrategy(1e-7, 250);
 	nn.train(projected, trainingLabels, searchStrategy, stopStrategy.verbose(printIteration), lambda);
 
 	parseCsv("E:\\Machine Learning\\Kaggle\\Digit Recognizer\\test.csv", true, set);
