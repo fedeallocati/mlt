@@ -1,4 +1,4 @@
-Machine Learning Toolkit in C++ using Eigen Library
+Machine Learning Toolkit in C++
 =============
 
 ## Components
