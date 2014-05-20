@@ -3,6 +3,7 @@
 #include <time.h>
 
 #include <Eigen/Core>
+#include <omp.h>
 
 #include "../../Components/FeedForwardNeuralNetwork/FeedForwardNeuralNetwork.h"
 #include "../../Components/PrincipalComponentAnalysis/PrincipalComponentAnalysis.h"
@@ -23,15 +24,16 @@ int main()
 	cout << "#Threads: " << Eigen::nbThreads() << endl;
 	cout << "SIMD Instruction Sets In Use: " << Eigen::SimdInstructionSetsInUse() << endl;
 
-	bool optimize = true;
+	bool optimize = false;
 	vector<vector<int> > set;
 
-	parseCsv("E:\\Machine Learning\\Kaggle\\Digit Recognizer\\train.csv", true, set);
+	parseCsv("train.csv", true, set);
 
 	size_t totalSize = set.size();
 	size_t features = set[0].size() - 1;
-	int hiddenLayer = 200;
-	double lambda = 3;
+	int hiddenLayer = 500;
+	size_t iterations = 250;
+	double lambda = 1;
 
 	if(optimize)
 	{
@@ -75,7 +77,7 @@ int main()
 		MatrixXd projectedCrossValSet = pca.projectData(crossValSet);
 
 		double lambdas[] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-		int hiddenLayers[] = {100, 200, 300};
+		int hiddenLayers[] = {250, 500, 1000};
 		int lambdasSize = sizeof(lambdas) / sizeof(double);
 		int hiddenLayersSize = sizeof(hiddenLayers) / sizeof(int);
 
@@ -94,7 +96,7 @@ int main()
 				FeedForwardNeuralNetwork nn(projectedTrainingSet.cols(), layers, 10);
 
 				LBFGS searchStrategy(50);
-				ObjectiveDelta stopStrategy(1e-7, 250);
+				ObjectiveDelta stopStrategy(1e-7, iterations);
 
 				nn.train(projectedTrainingSet, trainingLabels, searchStrategy, stopStrategy.verbose(printIteration), lambdas[j]);
 
@@ -121,7 +123,7 @@ int main()
 		}
 	}
 
-	vector<size_t> layers;	
+	vector<size_t> layers;
 	layers.push_back(hiddenLayer);
 		
 	MatrixXd trainingSet(set.size(), features);
@@ -147,10 +149,19 @@ int main()
 		
 	FeedForwardNeuralNetwork nn(projected.cols(), layers, 10);
 	LBFGS searchStrategy(50);
-	ObjectiveDelta stopStrategy(1e-7, 250);
+	ObjectiveDelta stopStrategy(1e-7, iterations);
+
+	double dtime = omp_get_wtime();
+
 	nn.train(projected, trainingLabels, searchStrategy, stopStrategy.verbose(printIteration), lambda);
 
-	parseCsv("E:\\Machine Learning\\Kaggle\\Digit Recognizer\\test.csv", true, set);
+	dtime = omp_get_wtime() - dtime;
+
+	cout << "Training Time: " << dtime << "s" << endl;
+	
+	cin.get();
+
+	parseCsv("test.csv", true, set);
 
 	MatrixXd testSet(set.size(), features);
 
@@ -174,8 +185,8 @@ int main()
 	{
 		ss << layers[l] << ".";
 	}
-
-	ss << layers[layers.size() - 1] << "-" << lambda << ".out";
+	
+	ss << layers[layers.size() - 1] << "-" << lambda << "-" << iterations << ".out";
 
 	ofstream outputFile(ss.str().c_str(), std::ofstream::app);
 	
