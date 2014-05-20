@@ -1,4 +1,6 @@
-FeedForwardNN
+Machine Learning Toolkit in C++ using Eigen Library
 =============
 
-General purpose Feed-Forward Neural Network
+## Components
+* FeedForwardNeuralNetwork: General purpose Feed-Forward Neural Network
+* PrincipalComponentAnalysis: PCA reduction using Singular Values Decomposition
