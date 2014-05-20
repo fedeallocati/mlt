@@ -3,7 +3,7 @@
 PrincipalComponentAnalysis::PrincipalComponentAnalysis(const Eigen::MatrixXd& trainingSet, size_t k)
 {
 	eigen_assert(k <= trainingSet.cols());
-	Eigen::JacobiSVD<Eigen::MatrixXd> svd = (trainingSet.transpose() * trainingSet).jacobiSvd(Eigen::ComputeThinU);
+	Eigen::JacobiSVD<Eigen::MatrixXd> svd = ((trainingSet.transpose() * trainingSet) / trainingSet.rows()).jacobiSvd(Eigen::ComputeThinU);
 
 	if (k == 0)
 	{
@@ -15,7 +15,7 @@ PrincipalComponentAnalysis::PrincipalComponentAnalysis(const Eigen::MatrixXd& tr
 			acum += svd.singularValues()(i);
 
 			if ((acum / sum) >= 0.99)
-			{				
+			{
 				k = i;
 				break;
 			}
