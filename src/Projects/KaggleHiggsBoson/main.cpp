@@ -11,69 +11,125 @@
 using namespace Eigen;
 using namespace std;
 
-void saveTheta(vector<MatrixXd>& theta, const char* file);
-void loadTheta(vector<MatrixXd>& theta, const char* file);
+bool askYesNoQuestion(const string& question);
+
+bool fileExists(const string& file);
+
+void saveTheta(const vector<MatrixXd>& theta);
+void loadTheta(vector<MatrixXd>& theta);
+
+void saveNormalizations(const RowVectorXd& means, RowVectorXd& stdDev);
+void loadNormalizations(RowVectorXd& means, RowVectorXd& stdDev);
 
 void parseCsv(string file, bool skipFirstLine, vector<vector<string> >& result);
 const string currentDateTime();
 
 void printIteration(unsigned long iter, const Eigen::VectorXd& x, double cost, const Eigen::VectorXd& gradient);
-bool fileExists(const string& name);
+
+unsigned int trainedIterations = 0;
+string thetaFile = "lastTrainedTheta.bin";
+string normalizationFile = "lastNormalizations.bin";
 
 int main()
 {
 	cout << "#Threads: " << Eigen::nbThreads() << endl;
-	cout << "SIMD Instruction Sets In Use: " << Eigen::SimdInstructionSetsInUse() << endl;
-
-	vector<vector<string> > set;
-
-	cout << "Loading Training Set..." << endl;
-
-	parseCsv("training.csv", true, set);
-
-	cout << "Loaded Training Set" << endl;
-
-	size_t totalSize = set.size();
-	size_t features = set[0].size() - 2;
-
-	cout << "Size: " << totalSize << endl;
-	cout << "Features: " << features << endl;
+	cout << "SIMD Instruction Sets In Use: " << Eigen::SimdInstructionSetsInUse() << endl << endl;
 
 	int hiddenLayer = 500;
-	size_t iterations = 2000;
+	size_t iterations = 5000;
 	double lambda = 1;
 
 	vector<size_t> layers;
-	layers.push_back(hiddenLayer);
-		
-	MatrixXd trainingSet(totalSize, features);
-	VectorXi trainingLabels(totalSize);
+	layers.push_back(hiddenLayer);	
+	size_t features = 30;
 
-	for(unsigned int i = 0; i < totalSize ; i++)
-	{		
-		for(unsigned int j = 0; j < features; j++)
-		{
-			trainingSet(i, j) = atof(set[i][j].c_str());
-		}
-
-		trainingLabels(i) = set[i][features + 1] == "b";
+	cout << "Features: " << features << endl;
+	cout << "Hidden Layers: ";
+	
+	for (size_t l = 0; l < layers.size() - 1; l++)
+	{
+			cout << layers[l] << " - ";
 	}
 
-	vector<vector<string> >().swap(set);
-	
-	RowVectorXd means = trainingSet.colwise().mean();
-	RowVectorXd stdDev = trainingSet.colwise().maxCoeff() - trainingSet.colwise().minCoeff();
-	
-	trainingSet.rowwise() -= means;
-	trainingSet.array().rowwise() /= stdDev.array();
+	cout<< layers[layers.size() - 1] << endl;
 
-	vector<MatrixXd> theta(2);
+	cout << "Lambda: " << lambda << endl << endl;
 
-	if(!fileExists("lastTraining.bin"))
+	FeedForwardNeuralNetwork nn(features, layers, 2);
+	
+	RowVectorXd means;
+	RowVectorXd stdDev;
+
+	bool loadedData = false;
+
+	if(fileExists(thetaFile) && fileExists(normalizationFile))
 	{
-		FeedForwardNeuralNetwork nn(features, layers, 2);
+		if(askYesNoQuestion("Previous Training Files Found. Load them?"))
+		{
+			vector<MatrixXd> theta = nn.getTheta();
+
+			cout << "Loading Previously Trained Parameters..." << endl;
+
+			loadTheta(theta);
+			loadNormalizations(means, stdDev);
+
+			cout << "Previously Trained Parameters Loaded" << endl << endl;
+
+			nn.setTheta(theta);	
+
+			loadedData = true;
+		}
+	}
+		
+	bool train = askYesNoQuestion("Train Neural Network?");
+	bool predict = askYesNoQuestion("Predict Labels?");
+
+	if (train)
+	{
+		vector<vector<string> > set;
+
+		cout << "Loading Training Set..." << endl;
+
+		parseCsv("training.csv", true, set);
+
+		cout << "Loaded Training Set" << endl;
+	
+		size_t totalSize = set.size();
+		cout << "Size: " << totalSize << endl << endl;	
+		
+		MatrixXd trainingSet(totalSize, features);
+		VectorXi trainingLabels(totalSize);
+
+		for(unsigned int i = 0; i < totalSize; i++)
+		{		
+			for(unsigned int j = 0; j < features; j++)
+			{
+				trainingSet(i, j) = atof(set[i][j].c_str());
+			}
+
+			trainingLabels(i) = set[i][features + 1] == "b";
+		}
+
+		vector<vector<string> >().swap(set);
+		
+		if (!loadedData)
+		{
+			means = trainingSet.colwise().mean();	
+			stdDev = trainingSet.colwise().maxCoeff() - trainingSet.colwise().minCoeff();
+			
+			/*for(size_t i = 0; i < trainingSet.rows(); i++)
+			{
+				trainingSet.row(i) = (trainingSet.row(i) - means).cwiseQuotient(stdDev);
+			}*/
+			
+			saveNormalizations(means, stdDev);
+		}
+
+		trainingSet = (trainingSet.rowwise() - means).array().rowwise() / stdDev.array();
+		
 		LBFGS searchStrategy(50);
 		ObjectiveDelta stopStrategy(1e-7, iterations);
+		nn.debug(&saveTheta);
 
 		cout << "Training Neural Network..." << endl;
 
@@ -83,80 +139,120 @@ int main()
 
 		dtime = omp_get_wtime() - dtime;
 
-		theta = nn.getTheta();
-
 		cout << "Neural Network Trained" << endl;
 
-		cout << "Training Time: " << dtime << "s" << endl;
+		cout << "Training Time: " << dtime << "s" << endl << endl;
 	}
-	else
+
+	if (predict)
 	{
-		cout << "Loading Previously Trained Parameters..." << endl;
+		vector<vector<string> > set;
 
-		loadTheta(theta, "lastTraining.bin");
+		cout << "Loading Test Set..." << endl;
 
-		cout << "Previously Trained Parameters Loaded" << endl;
-	}
-	
-	cout << "Loading Test Set..." << endl;
+		parseCsv("test.csv", true, set);
 
-	parseCsv("test.csv", true, set);
+		cout << "Loaded Test Set" << endl;
 
-	cout << "Loaded Test Set" << endl;
+		MatrixXd testSet(set.size(), features);
 
-	MatrixXd testSet(set.size(), features);
-
-	for (size_t i = 0; i < set.size(); i++)
-	{
-		for (size_t j = 0; j < set[i].size(); j++)
+		for (size_t i = 0; i < set.size(); i++)
 		{
-			testSet(i, j) = atof(set[i][j].c_str());
+			for (size_t j = 0; j < set[i].size(); j++)
+			{
+				testSet(i, j) = atof(set[i][j].c_str());
+			}
 		}
-	}
 
-	vector<vector<string> >().swap(set);
+		vector<vector<string> >().swap(set);
 
-	testSet.rowwise() -= means;
-	testSet.array().rowwise() /= stdDev.array();
-
-	FeedForwardNeuralNetwork nn(features, layers, 2);
-
-	cout << "Predicting Labels..." << endl;
-
-	VectorXi predictions = nn.predictMany(testSet);
-
-	cout << "Labels Predicted" << endl;
-
-	stringstream ss;
-
-	ss << "output" << "-";
-
-	for (size_t l = 0; l < layers.size() - 1; l++)
-	{
-		ss << layers[l] << ".";
-	}
+		testSet = (testSet.rowwise() - means).array().rowwise() / stdDev.array();
 	
-	ss << layers[layers.size() - 1] << "-" << lambda << "-" << iterations << ".out";
+		cout << "Predicting Labels..." << endl;
 
-	ofstream outputFile(ss.str().c_str(), std::ofstream::app);
+		VectorXi predictions = nn.predictMany(testSet);
+
+		cout << "Labels Predicted" << endl;
+
+		stringstream ss;
+
+		ss << "output" << "-";
+
+		for (size_t l = 0; l < layers.size() - 1; l++)
+		{
+			ss << layers[l] << ".";
+		}
 	
-	outputFile << "EventId,RankOrder,Class" << endl;
+		ss << layers[layers.size() - 1] << "-" << lambda << "-" << trainedIterations << ".out";
+
+		ofstream outputFile(ss.str().c_str(), std::ofstream::app);
 	
-	for (size_t i = 0; i < predictions.rows(); i++)
-	{
-		outputFile << i + 350000 << "," << i + 1 << "," << (predictions(i) == 1 ? 'b' : 's') << endl;
+		outputFile << "EventId,RankOrder,Class" << endl;
+	
+		for (size_t i = 0; i < predictions.rows(); i++)
+		{
+			outputFile << i + 350000 << "," << i + 1 << "," << (predictions(i) == 1 ? 'b' : 's') << endl;
+		}
+
+		outputFile.close();
 	}
-
-	outputFile.close();
 
 	cin.get();
+	cin.get();	
 
 	return 0;
 }
 
-void saveTheta(vector<MatrixXd>& theta, const char* file)
+bool askYesNoQuestion(const string& question)
 {
-	std::ofstream f(file, std::ios::binary);
+	while(true)
+	{
+		cout << question << " ";
+		string response;
+		cin >> response;
+
+		if(response  == "N" || response == "n" || response == "No" || response == "no" || response == "NO")
+		{
+			cout << endl;
+			return false;
+		}
+
+		if(response == "Y" || response == "y" || response == "Yes" || response == "yes" || response == "YES")
+		{
+			cout << endl;
+			return true;
+		}
+
+		cout << "Invalid answer" << endl;
+	}
+}
+
+bool fileExists(const string& file) 
+{
+	ifstream f(file.c_str());
+
+    if (f.good()) 
+	{
+        f.close();
+        return true;
+    }
+	else 
+	{
+        f.close();
+        return false;
+    }   
+}
+
+void saveTheta(const vector<MatrixXd>& theta)
+{
+	trainedIterations++;
+
+	std::ofstream f(thetaFile.c_str(), std::ios::binary);
+
+	size_t thetas = theta.size();
+	f.write((char *)&thetas, sizeof(thetas));
+
+	f.write((char *)&trainedIterations, sizeof(trainedIterations));
 
 	for (size_t i = 0; i < theta.size(); i++)
 	{
@@ -172,11 +268,21 @@ void saveTheta(vector<MatrixXd>& theta, const char* file)
 	f.close();
 }
 
-void loadTheta(vector<MatrixXd>& theta, const char* file)
+void loadTheta(vector<MatrixXd>& theta)
 {
-	std::ifstream f(file, std::ios::binary);
+	std::ifstream f(thetaFile.c_str(), std::ios::binary);
 
-	for(unsigned int i = 0; i < theta.size(); i++)
+	size_t thetas;
+	f.read((char *)&thetas, sizeof(thetas));
+
+	theta.resize(thetas);
+
+	unsigned int trainedIterationsLocal;
+	f.read((char *)&trainedIterationsLocal, sizeof(trainedIterationsLocal));
+		
+	trainedIterations = trainedIterationsLocal;
+
+	for(unsigned int i = 0; i < thetas; i++)
 	{
 		Eigen::MatrixXd::Index rows, cols;
 	
@@ -193,6 +299,54 @@ void loadTheta(vector<MatrixXd>& theta, const char* file)
 		}
 	}
 
+	f.close();
+}
+
+void saveNormalizations(const RowVectorXd& means, RowVectorXd& stdDev)
+{
+	std::ofstream f(normalizationFile.c_str(), std::ios::binary);
+
+	Eigen::MatrixXd::Index cols;
+	cols = means.cols();
+
+	f.write((char *)&cols, sizeof(cols));
+	f.write((char *)means.data(), sizeof(Eigen::RowVectorXd::Scalar) * cols);
+
+	cols = stdDev.cols();
+	f.write((char *)&cols, sizeof(cols));
+	f.write((char *)stdDev.data(), sizeof(Eigen::RowVectorXd::Scalar) * cols);
+
+	f.close();
+}
+
+void loadNormalizations(RowVectorXd& means, RowVectorXd& stdDev)
+{
+	std::ifstream f(normalizationFile.c_str(), std::ios::binary);
+
+	Eigen::MatrixXd::Index cols;
+	
+	f.read((char *)&cols, sizeof(cols));
+
+	means.resize(cols);
+
+	f.read((char *)means.data(), sizeof(Eigen::MatrixXd::Scalar) * cols);
+
+	if (f.bad())
+	{
+		throw "Error reading data";
+	}
+
+	f.read((char *)&cols, sizeof(cols));
+
+	stdDev.resize(cols);
+
+	f.read((char *)stdDev.data(), sizeof(Eigen::MatrixXd::Scalar) * cols);
+
+	if (f.bad())
+	{
+		throw "Error reading matrix";
+	}
+	
 	f.close();
 }
 
@@ -243,20 +397,4 @@ const string currentDateTime()
 void printIteration(unsigned long iter, const Eigen::VectorXd& x, double cost, const Eigen::VectorXd& gradient)
 {
 	std::cout << "iteration: " << iter << "   objective: " << cost << std::endl;
-}
-
-inline bool fileExists(const std::string& name) 
-{
-    ifstream f(name.c_str());
-
-    if (f.good()) 
-	{
-        f.close();
-        return true;
-    }
-	else 
-	{
-        f.close();
-        return false;
-    }   
 }

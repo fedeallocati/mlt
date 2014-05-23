@@ -20,6 +20,14 @@ public:
 	unsigned int predictOne(const Eigen::VectorXd& features);
 
 	const std::vector<Eigen::MatrixXd>& getTheta() const;
+	void setTheta(const std::vector<Eigen::MatrixXd>&);
+
+	FeedForwardNeuralNetwork& debug(void (*debugCallback)(const std::vector<Eigen::MatrixXd>& theta))
+    {
+        this->isDebug = true;
+		this->debugCallback = debugCallback;
+        return *this;
+    }
 
 private:
 	static Eigen::MatrixXd feedForward(const std::vector<Eigen::MatrixXd>& theta, const Eigen::MatrixXd& input);
@@ -29,17 +37,19 @@ private:
 	class BackpropNNCost
 	{	
 	public:
-		BackpropNNCost(std::vector<size_t>& layers, const Eigen::MatrixXd& x, const Eigen::MatrixXd& y, double lambda) : layers(layers), x(x), y(y), lambda(lambda)
+		BackpropNNCost(std::vector<size_t>& layers, const Eigen::MatrixXd& x, const Eigen::MatrixXd& y, double lambda, bool debug, 
+			void (*debugCallback)(const std::vector<Eigen::MatrixXd>& theta)) : layers(layers), x(x), y(y), lambda(lambda), debug(debug), debugCallback(debugCallback)
 		{
 		}
 	
-		double operator()(const Eigen::VectorXd& nn_params) const;
+		double operator()(const Eigen::VectorXd& params) const;
 
 	private:
 		std::vector<size_t>& layers;
 		const Eigen::MatrixXd& x, y;
 		double lambda;
-
+		bool debug;
+		void (*debugCallback)(const std::vector<Eigen::MatrixXd>& theta);
 	};
 
 	class BackpropNNGradient
@@ -49,7 +59,7 @@ private:
 		{
 		}
 	
-		Eigen::VectorXd operator()(const Eigen::VectorXd& nn_params) const;
+		Eigen::VectorXd operator()(const Eigen::VectorXd& params) const;
 
 	private:
 		std::vector<size_t>& layers;
@@ -63,6 +73,8 @@ private:
 	
 	std::vector<size_t> layers;
 	std::vector<Eigen::MatrixXd> theta;
+	bool isDebug;
+	void (*debugCallback)(const std::vector<Eigen::MatrixXd>& theta);
 };
 
 double sigmoid(double z);
