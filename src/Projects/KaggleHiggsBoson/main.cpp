@@ -21,80 +21,88 @@ void loadTheta(vector<MatrixXd>& theta);
 void saveNormalizations(const RowVectorXd& means, RowVectorXd& stdDev);
 void loadNormalizations(RowVectorXd& means, RowVectorXd& stdDev);
 
-void parseCsv(string file, bool skipFirstLine, vector<vector<string> >& result);
+//void savePca(const PrincipalComponentAnalysis& pca);
+//void loadPca(PrincipalComponentAnalysis& pca);
+
+void parseCsv(const string& file, vector<vector<string> >& input);
 const string currentDateTime();
 
 void printIteration(unsigned long iter, const Eigen::VectorXd& x, double cost, const Eigen::VectorXd& gradient);
 
 unsigned int trainedIterations = 0;
-string thetaFile = "lastTrainedTheta.bin";
-string normalizationFile = "lastNormalizations.bin";
+string thetaFile = "KaggleHiggsBoson-lastTrainedTheta.bin";
+string normalizationFile = "KaggleHiggsBoson-lastNormalizations.bin";
+//string pcaFile = "KaggleHiggsBoson-lastPca.bin";
 
 int main()
 {
 	cout << "#Threads: " << Eigen::nbThreads() << endl;
 	cout << "SIMD Instruction Sets In Use: " << Eigen::SimdInstructionSetsInUse() << endl << endl;
 
-	int hiddenLayer = 500;
+	int hiddenLayer = 100;
 	size_t iterations = 5000;
 	double lambda = 1;
 
 	vector<size_t> layers;
 	layers.push_back(hiddenLayer);	
 	size_t features = 30;
+	size_t labels = 2;
 
-	cout << "Features: " << features << endl;
+	cout << "Original Features: " << features << endl;
+
 	cout << "Hidden Layers: ";
-	
 	for (size_t l = 0; l < layers.size() - 1; l++)
 	{
-			cout << layers[l] << " - ";
+		cout << layers[l] << " - ";
 	}
-
 	cout<< layers[layers.size() - 1] << endl;
 
+	cout << "Output: " << labels << endl;
 	cout << "Lambda: " << lambda << endl << endl;
-
-	FeedForwardNeuralNetwork nn(features, layers, 2);
-	
+		
+	vector<MatrixXd> theta;
 	RowVectorXd means;
-	RowVectorXd stdDev;
+	RowVectorXd stdDev;	
+	//PrincipalComponentAnalysis pca;
 
 	bool loadedData = false;
 
-	if(fileExists(thetaFile) && fileExists(normalizationFile))
+	if(fileExists(thetaFile) && fileExists(normalizationFile) /*&& fileExists(pcaFile)*/)
 	{
-		if(askYesNoQuestion("Previous Training Files Found. Load them?"))
+		if(askYesNoQuestion("Previous training files found. Load them?"))
 		{
-			vector<MatrixXd> theta = nn.getTheta();
-
 			cout << "Loading Previously Trained Parameters..." << endl;
 
 			loadTheta(theta);
 			loadNormalizations(means, stdDev);
+			//loadPca(pca);
 
-			cout << "Previously Trained Parameters Loaded" << endl << endl;
-
-			nn.setTheta(theta);	
+			cout << "Previously Trained Parameters Loaded" << endl << endl;		
 
 			loadedData = true;
 		}
 	}
 		
-	bool train = askYesNoQuestion("Train Neural Network?");
-	bool predict = askYesNoQuestion("Predict Labels?");
+	bool train = askYesNoQuestion("Train neural network?");
+	bool predict = askYesNoQuestion("Predict labels?");
+
+	if (train && !fileExists("KaggleHiggsBoson-training.csv"))
+	{
+		train = true;
+		cout << "File KaggleHiggsBoson-training.csv not found, can't train" << endl;
+	}
 
 	if (train)
 	{
 		vector<vector<string> > set;
 
-		cout << "Loading Training Set..." << endl;
+		cout << "Loading Training Set (KaggleHiggsBoson-training.csv)..." << endl;
 
-		parseCsv("training.csv", true, set);
+		parseCsv("KaggleHiggsBoson-training.csv", set);
 
 		cout << "Loaded Training Set" << endl;
 	
-		size_t totalSize = set.size();
+		size_t totalSize = set.size() - 1;
 		cout << "Size: " << totalSize << endl << endl;	
 		
 		MatrixXd trainingSet(totalSize, features);
@@ -104,17 +112,17 @@ int main()
 		{		
 			for(unsigned int j = 0; j < features; j++)
 			{
-				trainingSet(i, j) = atof(set[i][j].c_str());
+				trainingSet(i, j) = atof(set[i + 1][j + 1].c_str());
 			}
 
-			trainingLabels(i) = set[i][features + 1] == "b";
+			trainingLabels(i) = set[i + 1][features + 2] == "b";
 		}
 
 		vector<vector<string> >().swap(set);
 		
 		if (!loadedData)
 		{
-			means = trainingSet.colwise().mean();	
+			means = trainingSet.colwise().mean();
 			stdDev = trainingSet.colwise().maxCoeff() - trainingSet.colwise().minCoeff();
 			
 			/*for(size_t i = 0; i < trainingSet.rows(); i++)
@@ -122,11 +130,25 @@ int main()
 				trainingSet.row(i) = (trainingSet.row(i) - means).cwiseQuotient(stdDev);
 			}*/
 			
-			saveNormalizations(means, stdDev);
+			saveNormalizations(means, stdDev);			
 		}
 
 		trainingSet = (trainingSet.rowwise() - means).array().rowwise() / stdDev.array();
-		
+
+		/*if (!loadedData)
+		{
+			pca.train(trainingSet);
+			cout << "Post PCA Features: " << pca.getNumberOfFeatures() << endl;
+			savePca(pca);
+		}*/		
+
+		FeedForwardNeuralNetwork nn(/*pca.getNumberOfFeatures()*/features, layers, 2);
+
+		if (loadedData)
+		{
+			nn.setTheta(theta);
+		}
+
 		LBFGS searchStrategy(50);
 		ObjectiveDelta stopStrategy(1e-7, iterations);
 		nn.debug(&saveTheta);
@@ -135,7 +157,7 @@ int main()
 
 		double dtime = omp_get_wtime();
 
-		nn.train(trainingSet, trainingLabels, searchStrategy, stopStrategy.verbose(printIteration), lambda);
+		nn.train(/*pca.projectData(*/trainingSet/*)*/, trainingLabels, searchStrategy, stopStrategy.verbose(printIteration), lambda);
 
 		dtime = omp_get_wtime() - dtime;
 
@@ -144,23 +166,35 @@ int main()
 		cout << "Training Time: " << dtime << "s" << endl << endl;
 	}
 
+	if (predict && !loadedData && !train)
+	{
+		predict = false;
+		cout << "Didn't loaded previous data and  didn't trained, can't predict labels" << endl;
+	}
+
+	if (predict && !fileExists("KaggleHiggsBoson-test.csv"))
+	{
+		predict = false;
+		cout << "File KaggleHiggsBoson-test.csv not found, can't predict" << endl;
+	}
+
 	if (predict)
 	{
 		vector<vector<string> > set;
 
-		cout << "Loading Test Set..." << endl;
+		cout << "Loading Test Set (KaggleHiggsBoson-test.csv)..." << endl;
 
-		parseCsv("test.csv", true, set);
+		parseCsv("KaggleHiggsBoson-test.csv", set);
 
 		cout << "Loaded Test Set" << endl;
 
-		MatrixXd testSet(set.size(), features);
+		MatrixXd testSet(set.size() - 1, features);
 
-		for (size_t i = 0; i < set.size(); i++)
+		for (size_t i = 0; i < set.size() - 1; i++)
 		{
-			for (size_t j = 0; j < set[i].size(); j++)
-			{
-				testSet(i, j) = atof(set[i][j].c_str());
+			for (size_t j = 0; j < features; j++)
+			{				
+				testSet(i, j) = atof(set[i + 1][j + 1].c_str());
 			}
 		}
 
@@ -170,17 +204,19 @@ int main()
 	
 		cout << "Predicting Labels..." << endl;
 
-		VectorXi predictions = nn.predictMany(testSet);
+		FeedForwardNeuralNetwork nn(/*pca.getNumberOfFeatures()*/features, layers, 2, theta);
+
+		VectorXi predictions = nn.predictMany(/*pca.projectData(*/testSet/*)*/);
 
 		cout << "Labels Predicted" << endl;
 
 		stringstream ss;
 
-		ss << "output" << "-";
+		ss << "KaggleHiggsBoson-output" << "-" << /*pca.getNumberOfFeatures()*/features << "-";
 
 		for (size_t l = 0; l < layers.size() - 1; l++)
 		{
-			ss << layers[l] << ".";
+			ss << layers[l] << "-";
 		}
 	
 		ss << layers[layers.size() - 1] << "-" << lambda << "-" << trainedIterations << ".out";
@@ -245,8 +281,6 @@ bool fileExists(const string& file)
 
 void saveTheta(const vector<MatrixXd>& theta)
 {
-	trainedIterations++;
-
 	std::ofstream f(thetaFile.c_str(), std::ios::binary);
 
 	size_t thetas = theta.size();
@@ -350,35 +384,64 @@ void loadNormalizations(RowVectorXd& means, RowVectorXd& stdDev)
 	f.close();
 }
 
-void parseCsv(string file, bool skipFirstLine, vector<vector<string> >& result)
+/*void savePca(const PrincipalComponentAnalysis& pca)
 {
-	result.clear();
-	ifstream str(file.c_str());
-    string line;
+	std::ofstream f(pcaFile.c_str(), std::ios::binary);
 
-	if(skipFirstLine)
+	Eigen::MatrixXd::Index rows, cols;
+	rows = pca.getMatrixUReduce().rows();
+	cols = pca.getMatrixUReduce().cols();
+
+	f.write((char *)&rows, sizeof(rows));
+	f.write((char *)&cols, sizeof(cols));
+	f.write((char *)pca.getMatrixUReduce().data(), sizeof(Eigen::MatrixXd::Scalar) * rows * cols);
+
+	f.close();
+}
+
+void loadPca(PrincipalComponentAnalysis& pca)
+{
+	std::ifstream f(pcaFile.c_str(), std::ios::binary);
+
+	Eigen::MatrixXd::Index rows, cols;
+	
+	f.read((char *)&rows, sizeof(rows));
+	f.read((char *)&cols, sizeof(cols));
+
+	MatrixXd matrixUReduce(rows, cols);
+
+	matrixUReduce.resize(rows, cols);
+
+	f.read((char *)matrixUReduce.data(), sizeof(Eigen::MatrixXd::Scalar) * rows * cols);
+
+	pca.setMatrixUReduce(matrixUReduce);
+
+	if (f.bad())
 	{
-		getline(str, line);
+		throw "Error reading matrix";
 	}
 
-	int i = 0;
+	f.close();
+}*/
 
+void parseCsv(const string& file, vector<vector<string> >& input)
+{
+	input.clear();
+	ifstream str(file.c_str());
+    string line;
+		
 	while (getline(str, line))
 	{
 		vector<string> currentLine;
 		std::stringstream lineStream(line);
 		std::string cell;
 
-		getline(lineStream, cell, ',');
-
 		while(getline(lineStream, cell, ','))
 		{
 			currentLine.push_back(cell);
 		}
 
-		result.push_back(currentLine);
-
-		i++;
+		input.push_back(currentLine);		
 	}
 }
 
@@ -394,7 +457,8 @@ const string currentDateTime()
     return buf;
 }
 
-void printIteration(unsigned long iter, const Eigen::VectorXd& x, double cost, const Eigen::VectorXd& gradient)
+void printIteration(unsigned long, const Eigen::VectorXd& x, double cost, const Eigen::VectorXd& gradient)
 {
-	std::cout << "iteration: " << iter << "   objective: " << cost << std::endl;
+	trainedIterations++;
+	std::cout << "iteration: " << trainedIterations << "   objective: " << cost << std::endl;
 }

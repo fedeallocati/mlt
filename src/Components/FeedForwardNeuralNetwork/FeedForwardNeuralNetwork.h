@@ -20,7 +20,7 @@ public:
 	unsigned int predictOne(const Eigen::VectorXd& features);
 
 	const std::vector<Eigen::MatrixXd>& getTheta() const;
-	void setTheta(const std::vector<Eigen::MatrixXd>&);
+	void setTheta(const std::vector<Eigen::MatrixXd>& theta);
 
 	FeedForwardNeuralNetwork& debug(void (*debugCallback)(const std::vector<Eigen::MatrixXd>& theta))
     {
