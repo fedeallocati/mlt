@@ -1,25 +1,5 @@
 #include "FeedForwardNeuralNetwork.h"
 
-#include <fstream>
-
-void saveCurrentTheta(std::vector<Eigen::MatrixXd>& theta, const char* file)
-{
-	std::ofstream f(file, std::ios::binary);
-
-	for (size_t i = 0; i < theta.size(); i++)
-	{
-		Eigen::MatrixXd::Index rows, cols;
-		rows = theta[i].rows();
-		cols = theta[i].cols();
-
-		f.write((char *)&rows, sizeof(rows));
-		f.write((char *)&cols, sizeof(cols));
-		f.write((char *)theta[i].data(), sizeof(Eigen::MatrixXd::Scalar) * rows * cols);
-	}
-
-	f.close();
-}
-
 FeedForwardNeuralNetwork::FeedForwardNeuralNetwork(size_t inputLayer, std::vector<size_t> hiddenLayers, size_t outputLayer)
 {
 	this->init(inputLayer, outputLayer, hiddenLayers);
@@ -74,7 +54,8 @@ void FeedForwardNeuralNetwork::train(const Eigen::MatrixXd& trainingSet, const E
 		counter += this->theta[i].size();
 	}
 
-	FindMin(searchStrategy, stopStrategy, BackpropNNCost(this->layers, x, y, lambda), BackpropNNGradient(this->layers, x, y, lambda), params, -1);
+	FindMin(searchStrategy, stopStrategy, BackpropNNCost(this->layers, x, y, lambda, this->isDebug, this->debugCallback), 
+		BackpropNNGradient(this->layers, x, y, lambda), params, -1);
 
 	counter = 0;
 
@@ -87,8 +68,6 @@ void FeedForwardNeuralNetwork::train(const Eigen::MatrixXd& trainingSet, const E
 
 		counter += this->theta[i].size();
 	}
-
-	saveCurrentTheta(this->theta, "lastTraining.bin");
 }
 
 Eigen::VectorXi FeedForwardNeuralNetwork::predictMany(const Eigen::MatrixXd& features, Eigen::MatrixXd& confidences)
@@ -145,6 +124,11 @@ const std::vector<Eigen::MatrixXd>& FeedForwardNeuralNetwork::getTheta() const
 	return this->theta;
 }
 
+void FeedForwardNeuralNetwork::setTheta(const std::vector<Eigen::MatrixXd>& theta)
+{
+	this->theta = theta;
+}
+
 Eigen::MatrixXd FeedForwardNeuralNetwork::feedForward(const std::vector<Eigen::MatrixXd>& theta, const Eigen::MatrixXd& input)
 {
 	Eigen::MatrixXd previous = input.transpose();
@@ -155,7 +139,7 @@ Eigen::MatrixXd FeedForwardNeuralNetwork::feedForward(const std::vector<Eigen::M
 		temp.bottomRows(theta[i].rows()) = (theta[i] * previous).unaryExpr(std::ptr_fun(sigmoid));
 		previous = temp;
 	}
-		
+	
 	return (theta.back() * previous).unaryExpr(std::ptr_fun(sigmoid));
 }
 
@@ -214,14 +198,17 @@ double FeedForwardNeuralNetwork::BackpropNNCost::operator()(const Eigen::VectorX
 		theta.push_back(curr);
 	}
 
-	saveCurrentTheta(theta, "lastTraining.bin");
-
+	if (this->debug)
+	{
+		this->debugCallback(theta);
+	}
+	
 	Eigen::MatrixXd output = feedForward(theta, x);
-		
+	
 	Eigen::MatrixXd ones = Eigen::MatrixXd::Ones(theta.back().rows(), x.rows());
 	
 	double cost = ((-y).array() * output.array().log() - (ones - y).array() * (ones - output).array().log()).sum() / x.rows();
-
+		
 	double reg = 0;
 
 	for(unsigned int i = 0; i < theta.size(); i++)
@@ -312,6 +299,8 @@ void FeedForwardNeuralNetwork::init(size_t inputLayer, size_t outputLayer, std::
 	this->layers.insert(this->layers.end(), hiddenLayers.begin(), hiddenLayers.end());
 	this->layers.push_back(outputLayer);
 
+	this->isDebug = false;
+
 	this->initializeRandWeights();
 }
 
@@ -329,7 +318,8 @@ void FeedForwardNeuralNetwork::initializeRandWeights()
 
 double sigmoid(double z)
 {
-	return 1.0 / (1.0 + exp(-z));
+	double gz = 1.0 / (1.0 + exp(-z));
+	return gz < 1 ? gz : 0.9999999999999999;
 }
 
 double sigmoidGradient(double z)
