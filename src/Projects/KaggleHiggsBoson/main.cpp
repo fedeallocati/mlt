@@ -6,7 +6,9 @@
 #include <omp.h>
 
 #include "../../Components/FeedForwardNeuralNetwork/FeedForwardNeuralNetwork.h"
-//#include "../../Components/PrincipalComponentAnalysis/PrincipalComponentAnalysis.h"
+#ifdef PCA
+#include "../../Components/PrincipalComponentAnalysis/PrincipalComponentAnalysis.h"
+#endif
 
 using namespace Eigen;
 using namespace std;
@@ -20,9 +22,11 @@ void loadTheta(vector<MatrixXd>& theta);
 
 void saveNormalizations(const RowVectorXd& means, RowVectorXd& stdDev);
 void loadNormalizations(RowVectorXd& means, RowVectorXd& stdDev);
+#ifdef PCA
 
-//void savePca(const PrincipalComponentAnalysis& pca);
-//void loadPca(PrincipalComponentAnalysis& pca);
+void savePca(const PrincipalComponentAnalysis& pca);
+void loadPca(PrincipalComponentAnalysis& pca);
+#endif
 
 void parseCsv(const string& file, vector<vector<string> >& input);
 const string currentDateTime();
@@ -32,7 +36,9 @@ void printIteration(unsigned long iter, const Eigen::VectorXd& x, double cost, c
 unsigned int trainedIterations = 0;
 string thetaFile = "KaggleHiggsBoson-lastTrainedTheta.bin";
 string normalizationFile = "KaggleHiggsBoson-lastNormalizations.bin";
-//string pcaFile = "KaggleHiggsBoson-lastPca.bin";
+#ifdef PCA
+string pcaFile = "KaggleHiggsBoson-lastPca.bin";
+#endif
 
 int main()
 {
@@ -40,11 +46,14 @@ int main()
 	cout << "SIMD Instruction Sets In Use: " << Eigen::SimdInstructionSetsInUse() << endl << endl;
 
 	int hiddenLayer = 100;
-	size_t iterations = 5000;
+	size_t iterations = 1880;
 	double lambda = 1;
 
 	vector<size_t> layers;
-	layers.push_back(hiddenLayer);	
+	layers.push_back(hiddenLayer);
+	layers.push_back(hiddenLayer);
+	layers.push_back(hiddenLayer);
+	layers.push_back(hiddenLayer);
 	size_t features = 30;
 	size_t labels = 2;
 
@@ -63,11 +72,17 @@ int main()
 	vector<MatrixXd> theta;
 	RowVectorXd means;
 	RowVectorXd stdDev;	
-	//PrincipalComponentAnalysis pca;
+#ifdef PCA
+	PrincipalComponentAnalysis pca;
+#endif
 
 	bool loadedData = false;
 
-	if(fileExists(thetaFile) && fileExists(normalizationFile) /*&& fileExists(pcaFile)*/)
+#ifdef PCA
+	if(fileExists(thetaFile) && fileExists(normalizationFile) && fileExists(pcaFile))
+#else
+	if(fileExists(thetaFile) && fileExists(normalizationFile))
+#endif	
 	{
 		if(askYesNoQuestion("Previous training files found. Load them?"))
 		{
@@ -75,8 +90,9 @@ int main()
 
 			loadTheta(theta);
 			loadNormalizations(means, stdDev);
-			//loadPca(pca);
-
+#ifdef PCA
+			loadPca(pca);
+#endif
 			cout << "Previously Trained Parameters Loaded" << endl << endl;		
 
 			loadedData = true;
@@ -135,14 +151,18 @@ int main()
 
 		trainingSet = (trainingSet.rowwise() - means).array().rowwise() / stdDev.array();
 
-		/*if (!loadedData)
+#ifdef PCA
+		if (!loadedData)
 		{
 			pca.train(trainingSet);
 			cout << "Post PCA Features: " << pca.getNumberOfFeatures() << endl;
 			savePca(pca);
-		}*/		
+		}
 
-		FeedForwardNeuralNetwork nn(/*pca.getNumberOfFeatures()*/features, layers, 2);
+		FeedForwardNeuralNetwork nn(pca.getNumberOfFeatures(), layers, 2);
+#else
+		FeedForwardNeuralNetwork nn(features, layers, 2);
+#endif		
 
 		if (loadedData)
 		{
@@ -157,13 +177,18 @@ int main()
 
 		double dtime = omp_get_wtime();
 
-		nn.train(/*pca.projectData(*/trainingSet/*)*/, trainingLabels, searchStrategy, stopStrategy.verbose(printIteration), lambda);
-
+#ifdef PCA
+		nn.train(pca.projectData(trainingSet), trainingLabels, searchStrategy, stopStrategy.verbose(printIteration), lambda);
+#else
+		nn.train(trainingSet, trainingLabels, searchStrategy, stopStrategy.verbose(printIteration), lambda);
+#endif
 		dtime = omp_get_wtime() - dtime;
 
 		cout << "Neural Network Trained" << endl;
 
 		cout << "Training Time: " << dtime << "s" << endl << endl;
+
+		theta = nn.getTheta();
 	}
 
 	if (predict && !loadedData && !train)
@@ -204,15 +229,24 @@ int main()
 	
 		cout << "Predicting Labels..." << endl;
 
-		FeedForwardNeuralNetwork nn(/*pca.getNumberOfFeatures()*/features, layers, 2, theta);
+#ifdef PCA
+		FeedForwardNeuralNetwork nn(pca.getNumberOfFeatures(), layers, 2, theta);
 
-		VectorXi predictions = nn.predictMany(/*pca.projectData(*/testSet/*)*/);
+		VectorXi predictions = nn.predictMany(pca.projectData(testSet));
+#else
+		FeedForwardNeuralNetwork nn(features, layers, 2, theta);
 
+		VectorXi predictions = nn.predictMany(testSet);
+#endif
+		
 		cout << "Labels Predicted" << endl;
 
 		stringstream ss;
-
-		ss << "KaggleHiggsBoson-output" << "-" << /*pca.getNumberOfFeatures()*/features << "-";
+#ifdef PCA
+		ss << "KaggleHiggsBoson-output" << "-" << pca.getNumberOfFeatures() << "-";
+#else
+		ss << "KaggleHiggsBoson-output" << "-" << features << "-";	
+#endif
 
 		for (size_t l = 0; l < layers.size() - 1; l++)
 		{
@@ -384,7 +418,8 @@ void loadNormalizations(RowVectorXd& means, RowVectorXd& stdDev)
 	f.close();
 }
 
-/*void savePca(const PrincipalComponentAnalysis& pca)
+#ifdef PCA
+void savePca(const PrincipalComponentAnalysis& pca)
 {
 	std::ofstream f(pcaFile.c_str(), std::ios::binary);
 
@@ -422,8 +457,9 @@ void loadPca(PrincipalComponentAnalysis& pca)
 	}
 
 	f.close();
-}*/
+}
 
+#endif
 void parseCsv(const string& file, vector<vector<string> >& input)
 {
 	input.clear();
