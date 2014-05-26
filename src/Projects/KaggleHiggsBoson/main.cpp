@@ -45,15 +45,15 @@ int main()
 	cout << "#Threads: " << Eigen::nbThreads() << endl;
 	cout << "SIMD Instruction Sets In Use: " << Eigen::SimdInstructionSetsInUse() << endl << endl;
 
-	int hiddenLayer = 100;
+	int hiddenLayer = 50;
 	size_t iterations = 1880;
 	double lambda = 1;
 
 	vector<size_t> layers;
 	layers.push_back(hiddenLayer);
 	layers.push_back(hiddenLayer);
-	layers.push_back(hiddenLayer);
-	layers.push_back(hiddenLayer);
+	//layers.push_back(hiddenLayer);
+	//layers.push_back(hiddenLayer);
 	size_t features = 30;
 	size_t labels = 2;
 
