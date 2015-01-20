@@ -5,7 +5,7 @@ FeedForwardNeuralNetwork::FeedForwardNeuralNetwork(size_t inputLayer, std::vecto
 	this->init(inputLayer, outputLayer, hiddenLayers);
 }
 
-FeedForwardNeuralNetwork::FeedForwardNeuralNetwork(size_t inputLayer, std::vector<size_t> hiddenLayers , size_t outputLayer, std::vector<Eigen::MatrixXd> theta)	
+FeedForwardNeuralNetwork::FeedForwardNeuralNetwork(size_t inputLayer, std::vector<size_t> hiddenLayers , size_t outputLayer, std::vector<Eigen::MatrixXd>& theta)	
 {
 	this->init(inputLayer, outputLayer, hiddenLayers);
 	this->theta = theta;
@@ -287,12 +287,12 @@ void FeedForwardNeuralNetwork::init(size_t inputLayer, size_t outputLayer, std::
 {
 	if (inputLayer == 0)
 	{
-		throw "Invalid input layer size. Must have at leaste 1 node";
+		throw "Invalid input layer size. Must have at least 1 feature";
 	}
 
 	if (outputLayer == 0)
 	{
-		throw "Invalid output layer size. Must have at leaste 1 node";
+		throw "Invalid output layer size. Must have at least 1 class";
 	}
 
 	this->layers.push_back(inputLayer);

@@ -10,7 +10,7 @@ class FeedForwardNeuralNetwork
 {
 public:
 	FeedForwardNeuralNetwork(size_t inputLayer, std::vector<size_t> hiddenLayers, size_t outputLayer);
-	FeedForwardNeuralNetwork(size_t inputLayer, std::vector<size_t> hiddenLayers, size_t outputLayer, std::vector<Eigen::MatrixXd> trainedTheta);
+	FeedForwardNeuralNetwork(size_t inputLayer, std::vector<size_t> hiddenLayers, size_t outputLayer, std::vector<Eigen::MatrixXd>& trainedTheta);
 
 	void train(const Eigen::MatrixXd& trainingSet, const Eigen::VectorXi& labels, Eigen::SearchStrategy& searchStrategy, Eigen::StopStrategy& stopStrategy, double lambda);
 
