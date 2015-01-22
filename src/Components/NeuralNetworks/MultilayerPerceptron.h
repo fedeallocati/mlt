@@ -89,6 +89,12 @@ public:
 		return prediction;
 	}
 
+	Eigen::VectorXi predict(const Eigen::MatrixXd& features)
+	{
+		Eigen::MatrixXd confidences;
+		return this->predict(features, confidences);
+	}
+
 	const std::vector<Eigen::MatrixXd>& getTheta() const
 	{
 		return this->theta;
