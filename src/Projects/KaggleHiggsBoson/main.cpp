@@ -1,13 +1,17 @@
+#define EIGEN_USE_MKL_ALL
+
 #include <fstream>
 #include <iostream>
 #include <time.h>
 
+#define PCA
+
 #include <Eigen/Core>
 #include <omp.h>
 
-#include "../../Components/FeedForwardNeuralNetwork/FeedForwardNeuralNetwork.h"
+#include "../../Components/NeuralNetworks/MultilayerPerceptron.h"
 #ifdef PCA
-#include "../../Components/PrincipalComponentAnalysis/PrincipalComponentAnalysis.h"
+#include "../../Components/PrincipalComponentAnalysis/CovariancePCA.h"
 #endif
 
 using namespace Eigen;
@@ -24,8 +28,8 @@ void saveNormalizations(const RowVectorXd& means, RowVectorXd& stdDev);
 void loadNormalizations(RowVectorXd& means, RowVectorXd& stdDev);
 #ifdef PCA
 
-void savePca(const PrincipalComponentAnalysis& pca);
-void loadPca(PrincipalComponentAnalysis& pca);
+void savePca(const CovariancePCA& pca);
+void loadPca(CovariancePCA& pca);
 #endif
 
 void parseCsv(const string& file, vector<vector<string> >& input);
@@ -73,7 +77,7 @@ int main()
 	RowVectorXd means;
 	RowVectorXd stdDev;	
 #ifdef PCA
-	PrincipalComponentAnalysis pca;
+	CovariancePCA pca;
 #endif
 
 	bool loadedData = false;
@@ -159,9 +163,9 @@ int main()
 			savePca(pca);
 		}
 
-		FeedForwardNeuralNetwork nn(pca.getNumberOfFeatures(), layers, 2);
+		MultilayerPerceptron nn(pca.getNumberOfFeatures(), layers, 2, 0.12, lambda);
 #else
-		FeedForwardNeuralNetwork nn(features, layers, 2);
+		MultilayerPerceptron nn(features, layers, 2, 0.12, lambda);
 #endif		
 
 		if (loadedData)
@@ -171,16 +175,15 @@ int main()
 
 		LBFGS searchStrategy(50);
 		ObjectiveDelta stopStrategy(1e-7, iterations);
-		nn.debug(&saveTheta);
-
+		
 		cout << "Training Neural Network..." << endl;
 
 		double dtime = omp_get_wtime();
 
 #ifdef PCA
-		nn.train(pca.projectData(trainingSet), trainingLabels, searchStrategy, stopStrategy.verbose(printIteration), lambda);
+		nn.train(pca.transform(trainingSet), trainingLabels, searchStrategy, stopStrategy.verbose(printIteration));
 #else
-		nn.train(trainingSet, trainingLabels, searchStrategy, stopStrategy.verbose(printIteration), lambda);
+		nn.train(trainingSet, trainingLabels, searchStrategy, stopStrategy.verbose(printIteration));
 #endif
 		dtime = omp_get_wtime() - dtime;
 
@@ -230,13 +233,13 @@ int main()
 		cout << "Predicting Labels..." << endl;
 
 #ifdef PCA
-		FeedForwardNeuralNetwork nn(pca.getNumberOfFeatures(), layers, 2, theta);
+		MultilayerPerceptron nn(theta);
 
-		VectorXi predictions = nn.predictMany(pca.projectData(testSet));
+		VectorXi predictions = static_cast<NeuralNetworkBase<MultilayerPerceptron>>(nn).predict(pca.transform(testSet));
 #else
-		FeedForwardNeuralNetwork nn(features, layers, 2, theta);
+		MultilayerPerceptron nn(theta);
 
-		VectorXi predictions = nn.predictMany(testSet);
+		VectorXi predictions = static_cast<NeuralNetworkBase<MultilayerPerceptron>>(nn).predict(testSet);
 #endif
 		
 		cout << "Labels Predicted" << endl;
@@ -419,7 +422,7 @@ void loadNormalizations(RowVectorXd& means, RowVectorXd& stdDev)
 }
 
 #ifdef PCA
-void savePca(const PrincipalComponentAnalysis& pca)
+void savePca(const CovariancePCA& pca)
 {
 	std::ofstream f(pcaFile.c_str(), std::ios::binary);
 
@@ -434,7 +437,7 @@ void savePca(const PrincipalComponentAnalysis& pca)
 	f.close();
 }
 
-void loadPca(PrincipalComponentAnalysis& pca)
+void loadPca(CovariancePCA& pca)
 {
 	std::ifstream f(pcaFile.c_str(), std::ios::binary);
 

@@ -1,20 +1,20 @@
+#define EIGEN_USE_MKL_ALL
+
 #include <fstream>
 #include <iostream>
 #include <time.h>
-
 #include <Eigen/Core>
 #include <omp.h>
-
-#include "../../Components/FeedForwardNeuralNetwork/Layer.h"
-#include "../../Components/LinearClassifiers/SoftmaxClassifier.h"
-#include "../../Components/FeedForwardNeuralNetwork/FeedForwardNeuralNetwork.h"
-#include "../../Components/PrincipalComponentAnalysis/PrincipalComponentAnalysis.h"
 
 using namespace Eigen;
 using namespace std;
 
-void Softmax(vector<vector<int> >& set, bool optimize = false);
+#include "../../Components/LinearClassifiers/SoftmaxLinearClassifier.h"
+#include "../../Components/NeuralNetworks/MultilayerPerceptron.h"
+#include "../../Components/PrincipalComponentAnalysis/CovariancePCA.h"
+
 void NN(vector<vector<int> >& set, bool optimize = false);
+void Softmax(vector<vector<int> >& set, bool optimize = false);
 
 void saveTheta(vector<MatrixXd>& theta, const char* file);
 void loadTheta(vector<MatrixXd>& theta, const char* file);
@@ -25,195 +25,15 @@ const string currentDateTime();
 void printIteration(unsigned long iter, const Eigen::VectorXd& x, double value, const Eigen::VectorXd& gradient);
 
 int main()
-{
-	cout << "#Threads: " << Eigen::nbThreads() << endl;
-	cout << "SIMD Instruction Sets In Use: " << Eigen::SimdInstructionSetsInUse() << endl;	
-
+{	
 	vector<vector<int> > set;
 	parseCsv("KaggleDigitRecognizer-train.csv", true, set);
 
-	Softmax(set, true);
+	NN(set, false);
 
 	cin.get();
 
 	return 0;
-}
-
-void Softmax(vector<vector<int> >& set, bool optimize)
-{
-	size_t totalSize = set.size();
-	size_t features = set[0].size() - 1;	
-	size_t iterations = 250;
-	double lambda = 1;
-
-	if(optimize)
-	{
-		size_t trainingSize = set.size() * 3 / 4;
-		size_t crossValSize = set.size() - trainingSize;
-
-		MatrixXd trainingSet(trainingSize, features);
-		VectorXi trainingLabels(trainingSize);
-
-		MatrixXd crossValSet(crossValSize, features);
-		VectorXi crossValLabels(crossValSize);
-
-		for(unsigned int i = 0; i < trainingSize ; i++)
-		{
-			trainingLabels(i) = set[i][0];
-
-			for(unsigned int j = 1; j < set[i].size(); j++)
-			{
-				trainingSet(i, j - 1) = set[i][j] - 128;
-			}
-		}
-
-		for(unsigned int i = 0; i < crossValSize; i++)
-		{
-			crossValLabels(i) = set[i + trainingSize][0];
-
-			for(unsigned int j = 1; j < set[i + trainingSize].size(); j++)
-			{
-				crossValSet(i, j - 1) = set[i + trainingSize][j] - 128;
-			}
-		}
-
-		double maxVal = 255;
-
-		trainingSet = trainingSet / maxVal;
-		crossValSet = crossValSet / maxVal;
-
-		PrincipalComponentAnalysis pca(trainingSet);
-
-		MatrixXd projectedTrainingSet = pca.projectData(trainingSet);
-		MatrixXd projectedCrossValSet = pca.projectData(crossValSet);
-
-		double lambdas[] = { 1e-7, 3e-7, 1e-6, 3e-6, 1e-5, 3e-5, 1e-4, 3e-4, 1e-3, 3e-3 };
-		int lambdasSize = sizeof(lambdas) / sizeof(double);
-		
-		double maxHit = -1;
-		lambda = -1;
-
-		string file = "softmax-optimization-" + currentDateTime() + ".out";
-				
-		for(int i = 0; i < lambdasSize; i++)
-		{								
-			SoftmaxClassifier cl(projectedTrainingSet.cols(), 10);
-
-			LBFGS searchStrategy(100);
-			ObjectiveDelta stopStrategy(1e-9, iterations);
-
-			cl.train(projectedTrainingSet, trainingLabels, searchStrategy, stopStrategy.verbose(printIteration), lambdas[i]);
-
-			size_t hit = cl.predict(projectedCrossValSet).cwiseEqual(crossValLabels).count();
-
-			ofstream optimizeFile(file.c_str(), std::ofstream::app);
-						
-			optimizeFile << lambdas[i] << ";" << hit << endl;
-
-			optimizeFile.close();
-
-			if(hit > maxHit)
-			{
-				maxHit = hit;					
-				lambda = lambdas[i];
-			}
-		}
-
-		cout << "Best Lambda: " << lambda << " - Accuracy: " << (double)maxHit / crossValSize << endl;		
-	}
-			
-	MatrixXd trainingSet(set.size(), features);
-	VectorXi trainingLabels(set.size());
-
-	for(unsigned int i = 0; i < set.size() ; i++)
-	{
-		trainingLabels(i) = set[i][0];
-
-		for(unsigned int j = 1; j < set[i].size(); j++)
-		{
-			trainingSet(i, j - 1) = set[i][j] - 128;
-		}
-	}
-
-	double maxVal = trainingSet.maxCoeff();
-	
-	trainingSet = trainingSet / maxVal;
-
-	PrincipalComponentAnalysis pca(trainingSet);
-
-	MatrixXd projected = pca.projectData(trainingSet);
-		
-	SoftmaxClassifier cl(projected.cols(), 10);
-	LBFGS searchStrategy(50);
-	ObjectiveDelta stopStrategy(1e-7, iterations);
-
-	double dtime = omp_get_wtime();
-
-	cl.train(projected, trainingLabels, searchStrategy, stopStrategy.verbose(printIteration), lambda);
-
-	dtime = omp_get_wtime() - dtime;
-
-	cout << "Training Time: " << dtime << "s" << endl;
-	
-	cin.get();
-
-	parseCsv("KaggleDigitRecognizer-test.csv", true, set);
-
-	MatrixXd testSet(set.size(), features);
-
-	for (size_t i = 0; i < set.size(); i++)
-	{
-		for (size_t j = 0; j < set[i].size(); j++)
-		{
-			testSet(i, j) = set[i][j] - 128;
-		}
-	}
-
-	testSet = testSet / maxVal;
-
-	VectorXi predictions = cl.predict(pca.projectData(testSet));
-
-	stringstream ss;
-
-	ss << "softmax-output" << "-";	
-	
-	ss << lambda << "-" << iterations << ".out";
-
-	ofstream outputFile(ss.str().c_str(), std::ofstream::app);
-	
-	outputFile << "ImageId,Label" << endl;
-
-	for (size_t i = 0; i < predictions.rows(); i++)
-	{
-		outputFile << i + 1 << "," << predictions(i) << endl;
-	}
-
-	outputFile.close();
-}
-
-void SoftmaxTests()
-{
-	MatrixXd theta(3, 5);
-	theta << 0.0, 0.01, -0.05, 0.1, 0.05,
-		     0.2, 0.7, 0.2, 0.05, 0.16,
-			 -0.3, 0.0, -0.45, -0.2, 0.03;
-
-	SoftmaxClassifier c(theta);
-
-	MatrixXd x(2, 5);
-	x << 1, -15, 22, -44, 56,
-		 1, -15, 22, -44, 56;
-
-	MatrixXd y(3, 2);
-	y << 0, 0,
-		 1, 1,
-		 0, 0;
-
-	//c.gradientInternal(theta, x, y, 0);
-
-	cout << c.predict(x);
-	
-	cin.get();
 }
 
 void NN(vector<vector<int> >& set, bool optimize)
@@ -239,7 +59,7 @@ void NN(vector<vector<int> >& set, bool optimize)
 		{
 			trainingLabels(i) = set[i][0];
 
-			for(unsigned int j = 1; j < set[i].size(); j++)
+			for (unsigned int j = 1; j < features + 1; j++)
 			{
 				trainingSet(i, j - 1) = set[i][j] - 128;
 			}
@@ -249,7 +69,7 @@ void NN(vector<vector<int> >& set, bool optimize)
 		{
 			crossValLabels(i) = set[i + trainingSize][0];
 
-			for(unsigned int j = 1; j < set[i + trainingSize].size(); j++)
+			for (unsigned int j = 1; j < features + 1; j++)
 			{
 				crossValSet(i, j - 1) = set[i + trainingSize][j] - 128;
 			}
@@ -259,11 +79,12 @@ void NN(vector<vector<int> >& set, bool optimize)
 
 		trainingSet = trainingSet / maxVal;
 		crossValSet = crossValSet / maxVal;
+				
+		CovariancePCA pca;
+		pca.train(trainingSet);
 
-		PrincipalComponentAnalysis pca(trainingSet);
-
-		MatrixXd projectedTrainingSet = pca.projectData(trainingSet);
-		MatrixXd projectedCrossValSet = pca.projectData(crossValSet);
+		MatrixXd projectedTrainingSet = pca.transform(trainingSet);
+		MatrixXd projectedCrossValSet = pca.transform(crossValSet);
 
 		double lambdas[] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
 		int hiddenLayers[] = {250, 500, 1000};
@@ -282,14 +103,15 @@ void NN(vector<vector<int> >& set, bool optimize)
 			{
 				vector<size_t> layers;
 				layers.push_back(hiddenLayers[i]);				
-				FeedForwardNeuralNetwork nn(projectedTrainingSet.cols(), layers, 10);
+				MultilayerPerceptron nn(projectedTrainingSet.cols(), layers, 10, lambdas[j]);
 
 				LBFGS searchStrategy(50);
 				ObjectiveDelta stopStrategy(1e-7, iterations);
 
-				nn.train(projectedTrainingSet, trainingLabels, searchStrategy, stopStrategy.verbose(printIteration), lambdas[j]);
+				nn.train(projectedTrainingSet, trainingLabels, searchStrategy, stopStrategy.verbose(printIteration));
 
-				size_t hit = nn.predictMany(projectedCrossValSet).cwiseEqual(crossValLabels).count();
+				//FEDE FIX
+				size_t hit = static_cast<NeuralNetworkBase<MultilayerPerceptron>>(nn).predict(projectedCrossValSet).cwiseEqual(crossValLabels).count();
 
 				ofstream optimizeFile(file.c_str(), std::ofstream::app);
 
@@ -332,17 +154,18 @@ void NN(vector<vector<int> >& set, bool optimize)
 	
 	trainingSet = trainingSet / maxVal;
 
-	PrincipalComponentAnalysis pca(trainingSet);
+	CovariancePCA pca;
+	pca.train(trainingSet);
 
-	MatrixXd projected = pca.projectData(trainingSet);
+	MatrixXd projected = pca.transform(trainingSet);
 		
-	FeedForwardNeuralNetwork nn(projected.cols(), layers, 10);
+	MultilayerPerceptron nn(projected.cols(), layers, 10, lambda);
 	LBFGS searchStrategy(50);
 	ObjectiveDelta stopStrategy(1e-7, iterations);
 
 	double dtime = omp_get_wtime();
 
-	nn.train(projected, trainingLabels, searchStrategy, stopStrategy.verbose(printIteration), lambda);
+	nn.train(projected, trainingLabels, searchStrategy, stopStrategy.verbose(printIteration));
 
 	dtime = omp_get_wtime() - dtime;
 
@@ -364,7 +187,8 @@ void NN(vector<vector<int> >& set, bool optimize)
 
 	testSet = testSet / maxVal;
 
-	VectorXi predictions = nn.predictMany(pca.projectData(testSet));
+	//FEDE FIX
+	VectorXi predictions = static_cast<NeuralNetworkBase<MultilayerPerceptron>>(nn).predict(pca.transform(testSet));
 
 	stringstream ss;
 
@@ -379,6 +203,159 @@ void NN(vector<vector<int> >& set, bool optimize)
 
 	ofstream outputFile(ss.str().c_str(), std::ofstream::app);
 	
+	outputFile << "ImageId,Label" << endl;
+
+	for (size_t i = 0; i < predictions.rows(); i++)
+	{
+		outputFile << i + 1 << "," << predictions(i) << endl;
+	}
+
+	outputFile.close();
+}
+
+void Softmax(vector<vector<int> >& set, bool optimize)
+{
+	size_t totalSize = set.size();
+	size_t features = set[0].size() - 1;
+	size_t iterations = 250;
+	double lambda = 3e-005;
+
+	if (optimize)
+	{
+		size_t trainingSize = set.size() * 3 / 4;
+		size_t crossValSize = set.size() - trainingSize;
+
+		MatrixXd trainingSet(trainingSize, features);
+		VectorXi trainingLabels(trainingSize);
+
+		MatrixXd crossValSet(crossValSize, features);
+		VectorXi crossValLabels(crossValSize);
+
+		for (unsigned int i = 0; i < trainingSize; i++)
+		{
+			trainingLabels(i) = set[i][0];
+
+			for (unsigned int j = 1; j < features + 1; j++)
+			{
+				trainingSet(i, j - 1) = set[i][j] - 128;
+			}
+		}
+
+		for (unsigned int i = 0; i < crossValSize; i++)
+		{
+			crossValLabels(i) = set[i + trainingSize][0];
+
+			for (unsigned int j = 1; j < features + 1; j++)
+			{
+				crossValSet(i, j - 1) = set[i + trainingSize][j] - 128;
+			}
+		}
+
+		double maxVal = 255;
+
+		trainingSet = trainingSet / maxVal;
+		crossValSet = crossValSet / maxVal;
+
+		CovariancePCA pca;
+		pca.train(trainingSet);
+
+		MatrixXd projectedTrainingSet = pca.transform(trainingSet);
+		MatrixXd projectedCrossValSet = pca.transform(crossValSet);
+
+		double lambdas[] = { 3e-6, 10e-6, 3e-5, 10e-5, 3e-3, 10e-3, 3e-1, 10e-1, 3, 10 };
+		int lambdasSize = sizeof(lambdas) / sizeof(double);
+
+		double maxHit = -1;
+		lambda = -1;
+
+		string file = "optimization-" + currentDateTime() + ".out";
+				
+		for (int i = 0; i < lambdasSize; i++)
+		{			
+			SoftmaxLinearClassifier cl(projectedTrainingSet.cols(), 10, lambdas[i]);
+
+			LBFGS searchStrategy(50);
+			ObjectiveDelta stopStrategy(1e-7, iterations);
+
+			cl.train(projectedTrainingSet, trainingLabels, searchStrategy, stopStrategy.verbose(printIteration));
+
+			//FEDE FIX
+			size_t hit = static_cast<LinearClassifierBase<SoftmaxLinearClassifier>>(cl).predict(projectedCrossValSet).cwiseEqual(crossValLabels).count();
+
+			ofstream optimizeFile(file.c_str(), std::ofstream::app);
+
+			optimizeFile << lambdas[i] << ";" << hit << endl;
+
+			optimizeFile.close();
+
+			if (hit > maxHit)
+			{
+				maxHit = hit;
+				lambda = lambdas[i];
+			}
+		}
+	}
+
+	MatrixXd trainingSet(set.size(), features);
+	VectorXi trainingLabels(set.size());
+
+	for (unsigned int i = 0; i < set.size(); i++)
+	{
+		trainingLabels(i) = set[i][0];
+
+		for (unsigned int j = 1; j < set[i].size(); j++)
+		{
+			trainingSet(i, j - 1) = set[i][j] - 128;
+		}
+	}
+
+	double maxVal = trainingSet.maxCoeff();
+
+	trainingSet = trainingSet / maxVal;
+
+	CovariancePCA pca;
+	pca.train(trainingSet);
+	MatrixXd projected = pca.transform(trainingSet);
+	
+	SoftmaxLinearClassifier cl(projected.cols(), 10, 0.001, lambda);
+	LBFGS searchStrategy(50);
+	ObjectiveDelta stopStrategy(1e-7, iterations);
+
+	double dtime = omp_get_wtime();
+
+	cl.train(projected, trainingLabels, searchStrategy, stopStrategy.verbose(printIteration));
+
+	dtime = omp_get_wtime() - dtime;
+
+	cout << "Training Time: " << dtime << "s" << endl;
+
+	cin.get();
+
+	parseCsv("KaggleDigitRecognizer-test.csv", true, set);
+
+	MatrixXd testSet(set.size(), features);
+
+	for (size_t i = 0; i < set.size(); i++)
+	{
+		for (size_t j = 0; j < set[i].size(); j++)
+		{
+			testSet(i, j) = set[i][j] - 128;
+		}
+	}
+
+	testSet = testSet / maxVal;
+
+	//FEDE FIX
+	VectorXi predictions = static_cast<LinearClassifierBase<SoftmaxLinearClassifier>>(cl).predict(pca.transform(testSet));
+
+	stringstream ss;
+
+	ss << "output" << "-";
+	
+	ss << lambda << "-" << iterations << ".out";
+
+	ofstream outputFile(ss.str().c_str(), std::ofstream::app);
+
 	outputFile << "ImageId,Label" << endl;
 
 	for (size_t i = 0; i < predictions.rows(); i++)
