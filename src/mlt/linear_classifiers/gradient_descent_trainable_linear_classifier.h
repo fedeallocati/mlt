@@ -1,15 +1,17 @@
 #ifndef GRADIENT_DESCENT_TRAINABLE_LINEAR_CLASSIFIER_H
 #define GRADIENT_DESCENT_TRAINABLE_LINEAR_CLASSIFIER_H
 
+#include <Eigen/Core>
+
 #include "linear_classifier.h"
-#include "../trainers/gradient_descent/igradient_descent_trainable.h"
+#include "../base/igradient_descent_trainable.h"
 
 namespace MLT
 {
 namespace LinearClassifiers
 {
 	using namespace Eigen;
-	using namespace Trainers::GradientDescent;
+	using namespace Base;
 	
 	class GradientDescentTrainableLinearClassifier : public LinearClassifier, public IGradientDescentTrainable
 	{
@@ -24,7 +26,7 @@ namespace LinearClassifiers
 			LinearClassifier::set_parameters(parameters);
 		}
 
-		inline bool add_intercept() const { return LinearClassifier::add_intercept(); }
+		inline bool add_intercept() const { return true; }
 
 	protected:
 		GradientDescentTrainableLinearClassifier(size_t input, size_t output, double initial_epsilon) :

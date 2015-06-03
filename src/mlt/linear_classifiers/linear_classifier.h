@@ -1,7 +1,8 @@
 #ifndef LINEAR_CLASSSIFIER_H
 #define LINEAR_CLASSSIFIER_H
 
-#include <EigenOptimization/Optimization>
+#include <Eigen/Core>
+
 #include "../base/iclassifier.h"
 #include "../base/iparameterized.h"
 
@@ -14,12 +15,7 @@ namespace LinearClassifiers
 
 	class LinearClassifier : public IParameterized, public IClassifier
 	{	
-	public:
-		MatrixXd score(const Eigen::MatrixXd& theta, const Eigen::MatrixXd& x) const
-		{	
-			return theta * x.transpose();
-		}
-
+	public:		
 		VectorXi classify(const MatrixXd& features, MatrixXd& confidences) const
 		{
 			assert(features.cols() == this->_input);
@@ -28,7 +24,7 @@ namespace LinearClassifiers
 			x.block(0, 1, features.rows(), features.cols()) = features;
 			x.col(0) = VectorXd::Ones(features.rows());
 
-			confidences = this->score(this->_theta, x);
+			confidences = this->_score(this->_theta, x);
 
 			VectorXi classification(confidences.cols());
 
@@ -60,8 +56,6 @@ namespace LinearClassifiers
 			this->_theta = MatrixXd::Map(parameters.data(), this->_output, this->_input + 1);
 		}
 
-		inline bool add_intercept() const { return true; }
-
 		inline const MatrixXd& theta() const
 		{
 			return this->_theta;
@@ -85,6 +79,11 @@ namespace LinearClassifiers
 			this->_output = output;
 
 			this->_theta = MatrixXd::Random(output, input + 1) * initial_epsilon;
+		}
+
+		MatrixXd _score(const Eigen::MatrixXd& theta, const Eigen::MatrixXd& x) const
+		{
+			return theta * x.transpose();
 		}
 				
 		size_t _input;

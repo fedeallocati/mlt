@@ -1,6 +1,8 @@
 #ifndef SOFTMAX_LINEAR_CLASSIFIER_H
 #define SOFTMAX_LINEAR_CLASSIFIER_H
 
+#include <Eigen/Core>
+
 #include "gradient_descent_trainable_linear_classifier.h"
 
 namespace MLT
@@ -21,7 +23,7 @@ namespace LinearClassifiers
 		{
 			MatrixXd theta = MatrixXd::Map(parameters.data(), this->_output, this->_input + 1);
 			
-			Eigen::MatrixXd scores = this->score(theta, x);
+			Eigen::MatrixXd scores = this->_score(theta, x);
 			scores.rowwise() -= scores.colwise().maxCoeff();
 			scores = scores.array().exp();
 			scores = scores.array().rowwise() / scores.colwise().sum().array();
@@ -37,17 +39,17 @@ namespace LinearClassifiers
 		{
 			MatrixXd theta = MatrixXd::Map(parameters.data(), this->_output, this->_input + 1);
 			
-			MatrixXd scores = this->score(theta, x);
+			MatrixXd scores = this->_score(theta, x);
 			scores.rowwise() -= scores.colwise().maxCoeff();
 			scores = scores.array().exp();
 			scores = scores.array().rowwise() / scores.colwise().sum().array();
 
-			MatrixXd dTheta = scores * x;
-			dTheta -= y * x;
-			dTheta /= x.rows();
-			dTheta += this->_lambda * theta;
+			MatrixXd d_theta = scores * x;
+			d_theta -= y * x;
+			d_theta /= x.rows();
+			d_theta += this->_lambda * theta;
 
-			return VectorXd::Map(dTheta.data(), dTheta.size());
+			return VectorXd::Map(d_theta.data(), d_theta.size());
 		}
 
 	protected:

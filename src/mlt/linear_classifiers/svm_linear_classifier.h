@@ -21,7 +21,7 @@ namespace LinearClassifiers
 		{
 			MatrixXd theta = MatrixXd::Map(parameters.data(), this->_output, this->_input + 1);
 			
-			MatrixXd scores = this->score(theta, x);			
+			MatrixXd scores = this->_score(theta, x);			
 			double loss = -(scores.array() * y.array()).colwise().sum().array().log().sum();
 			loss /= x.rows();
 			loss += 0.5 * this->_lambda * (theta.array().pow(2)).sum();
@@ -33,7 +33,7 @@ namespace LinearClassifiers
 		{
 			MatrixXd theta = MatrixXd::Map(parameters.data(), this->_output, this->_input + 1);
 			
-			MatrixXd scores = this->score(theta, x);
+			MatrixXd scores = this->_score(theta, x);
 			MatrixXd dTheta = scores * x;
 			dTheta -= y * x;
 			dTheta /= x.rows();

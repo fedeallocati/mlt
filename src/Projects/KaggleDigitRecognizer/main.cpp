@@ -7,21 +7,20 @@
 #include <Eigen/Core>
 #include <omp.h>
 
-#include "../../Components/linear_classifiers/softmax_linear_classifier.h"
-#include "../../Components/trainers/gradient_descent/gradient_descent_trainer.h"
-#include "../../Components/NeuralNetworks/MultilayerPerceptron.h"
-#include "../../Components/PrincipalComponentAnalysis/CovariancePCA.h"
+#include "../../mlt/linear_classifiers/softmax_linear_classifier.h"
+#include "../../mlt/trainers/gradient_descent/gradient_descent_trainer.h"
+#include "../../mlt/neural_networks/multilayer_perceptron_classifier.h"
+#include "../../mlt/dimensionality_reduction/principal_component_analysis.h"
 
 using namespace std;
 using namespace Eigen;
 using namespace MLT::LinearClassifiers;
+using namespace MLT::NeuralNetworks;
 using namespace MLT::Trainers::GradientDescent;
+using namespace MLT::DimensionalityReduction;
 
-void NN(vector<vector<int> >& set, bool optimize = false);
-void SoftmaxLinear(vector<vector<int> >& set, bool optimize);
-
-void saveTheta(vector<MatrixXd>& theta, const char* file);
-void loadTheta(vector<MatrixXd>& theta, const char* file);
+void NN(bool optimize);
+void SoftmaxLinear(bool optimize);
 
 void parseCsv(string file, bool skipFirstLine, vector<vector<int> >& result, bool verbose = false);
 const string currentDateTime();
@@ -70,21 +69,16 @@ int main()
 	buildInfo();
 	cout << endl;
 
-	vector<vector<int> > set;
-
 	bool mlp = askYesNoQuestion("Use Multilayer Perceptron?");
+	bool optimize = askYesNoQuestion("Optimize Hyperparameters?");
 
-	cout << "Loading training set" << endl;
-
-	parseCsv("KaggleDigitRecognizer-train.csv", true, set);
-	
 	if (mlp)
 	{
-		NN(set, true);
+		NN(optimize);
 	}
 	else
 	{
-		SoftmaxLinear(set, true);
+		SoftmaxLinear(optimize);
 	}
 	
 	cin.get();
@@ -92,133 +86,192 @@ int main()
 	return 0;
 }
 
-void NN(vector<vector<int> >& set, bool optimize)
+void get_training_set(MatrixXd& training_data, VectorXi& training_labels, MatrixXd& training_target)
 {
-	size_t totalSize = set.size();	
+	vector<vector<int> > set;
+
+	cout << "Loading training set" << endl;
+	double dtime = omp_get_wtime();
+
+	parseCsv("KaggleDigitRecognizer-train.csv", true, set);
+
+	dtime = omp_get_wtime() - dtime;
+	cout << "Load time: " << dtime << "s" << endl;
+		
+	cout << "Moving training set to Eigen" << endl ;
+	dtime = omp_get_wtime();
+
+	size_t total_size = set.size();
 	size_t features = set[0].size() - 1;
-	int hiddenLayer1 = 1000;
-	int hiddenLayer2 = 250;	
-	size_t iterations = 250;	
-	double lambda = 1;
 
-	MatrixXd trainingSet(totalSize, features);
-	VectorXi trainingLabels(totalSize);
+	training_data = MatrixXd(total_size, features);
+	training_labels = VectorXi(total_size);
+	training_target = MatrixXd::Zero(10, total_size);
 
-	cout << "Moving training set to Eigen" << endl << endl;
-
-	for (unsigned int i = 0; i < totalSize; i++)
+	for (unsigned int i = 0; i < total_size; i++)
 	{
-		trainingLabels(i) = set[i][0];
+		training_labels(i) = set[i][0];
+		training_target(set[i][0], i) = 1;
 
 		for (unsigned int j = 1; j < features + 1; j++)
 		{
-			trainingSet(i, j - 1) = set[i][j] - 128;
+			training_data(i, j - 1) = (set[i][j] - 128) / 128;
 		}
-
-		set[i].clear();
-		vector<int>().swap(set[i]);
-		set[i].clear();
 	}
 
-	set.clear();
-	vector<vector<int>>().swap(set);
-	set.clear();
+	dtime = omp_get_wtime() - dtime;
+	cout << "Move time: " << dtime << "s" << endl << endl;
+}
 
-	double maxVal = trainingSet.maxCoeff();
+void get_test_set(MatrixXd& test_data)
+{
+	vector<vector<int> > set;
 
-	trainingSet = trainingSet / maxVal;
-
-	cout << "Training PCA" << endl;
-
-	CovariancePCA pca;
-	
+	cout << "Loading test set" << endl;
 	double dtime = omp_get_wtime();
 
-	pca.train(trainingSet);
+	parseCsv("KaggleDigitRecognizer-test.csv", true, set);
 
 	dtime = omp_get_wtime() - dtime;
+	cout << "Load time: " << dtime << "s" << endl;
 
+	cout << "Moving test set to Eigen" << endl;
+	dtime = omp_get_wtime();
+
+	size_t total_size = set.size();
+	size_t features = set[0].size();
+
+	test_data = MatrixXd(total_size, features);
+
+	for (unsigned int i = 0; i < total_size; i++)
+	{
+		for (unsigned int j = 1; j < features + 1; j++)
+		{
+			test_data(i, j - 1) = (set[i][j] - 128) / 128;
+		}
+	}
+
+	dtime = omp_get_wtime() - dtime;
+	cout << "Move time: " << dtime << "s" << endl << endl;
+}
+
+void output_result(const VectorXi& result, const string& filename)
+{	
+	cout << "Outputing to file " << filename << endl;
+
+	ofstream outputFile(filename.c_str(), std::ofstream::app);
+
+	outputFile << "ImageId,Label" << endl;
+
+	for (size_t i = 0; i < result.rows(); i++)
+	{
+		outputFile << i + 1 << "," << result(i) << endl;
+	}
+
+	outputFile.close();
+
+}
+
+void run()
+{
+
+}
+
+void NN(bool optimize)
+{	
+	int hidden_layer_1 = 500;
+	int hidden_layer_2 = 0;	
+	size_t iterations = 500;	
+	double lambda = 1;
+
+	MatrixXd training_data;
+	VectorXi training_labels;
+	MatrixXd training_target;
+
+	get_training_set(training_data, training_labels, training_target);
+
+	cout << "Training PCA" << endl;
+	PrincipalComponentAnalysis pca;
+	double dtime = omp_get_wtime();
+	pca.train(training_data);
+	dtime = omp_get_wtime() - dtime;
 	cout << "Training time: " << dtime << "s" << endl << endl;
+
+	training_data = pca.transform(training_data);
+
+	GradientDescentTrainer trainer;
 
 	if(optimize)
 	{	
-		size_t trainingSize = totalSize * 3 / 4;
-		size_t crossValSize = totalSize - trainingSize;
-				
-		MatrixXd projectedTrainingSet = pca.transform(trainingSet.topRows(trainingSize));
-		MatrixXd projectedCrossValSet = pca.transform(trainingSet.bottomRows(crossValSize));
+		size_t training_size = training_data.rows() * 3 / 4;
+		size_t cross_val_size = training_data.rows() - training_size;
 
 		double lambdas[] = { 1, 10, 20, 30 };
-		int hiddenLayers1[] = { 250, 500, 1000 };
-		int hiddenLayers2[] = { 0, 250, 500, 1000 };
-		int lambdasSize = sizeof(lambdas) / sizeof(double);
-		int hiddenLayers1Size = sizeof(hiddenLayers1) / sizeof(int);
-		int hiddenLayers2Size = sizeof(hiddenLayers2) / sizeof(int);
+		int hidden_layers_1[] = { 250, 500, 1000 };
+		int hidden_layers_2[] = { 0, 250, 500, 1000 };
+		int lambdas_size = sizeof(lambdas) / sizeof(double);
+		int hidden_layers_1_size = sizeof(hidden_layers_1) / sizeof(int);
+		int hidden_layers_2_size = sizeof(hidden_layers_2) / sizeof(int);
 
-		double maxHit = -1;
-		hiddenLayer1 = -1;
-		hiddenLayer2 = -1;
+		double max_hit = -1;
+		hidden_layer_1 = -1;
+		hidden_layer_2 = -1;
 		lambda = -1;
 
 		string file = "mlp-optimization-" + currentDateTime() + ".out";
 
 		cout << "Choosing best hyperparameters with Cross-Validation" << endl << endl;
 
-		for(int i = 0; i < hiddenLayers1Size; i++)
+		for (int i = 0; i < hidden_layers_1_size; i++)
 		{
-			for (int j = 0; j < hiddenLayers2Size; j++)
+			for (int j = 0; j < hidden_layers_2_size; j++)
 			{
-				for (int k = 0; k < lambdasSize; k++)
+				for (int k = 0; k < lambdas_size; k++)
 				{
 					vector<size_t> layers;
 
 					cout << "Training architecture: [" << pca.getNumberOfFeatures() << " - "
-						<< hiddenLayers1[i] << " - " << hiddenLayers2[j] << " - " 
+						<< hidden_layers_1[i] << " - " << hidden_layers_2[j] << " - "
 						<< 10 << "] and lambda: " << lambdas[k] << endl;
 
-					if (hiddenLayers1[i] != 0)
+					if (hidden_layers_1[i] != 0)
 					{
-						layers.push_back(hiddenLayers1[i]);
+						layers.push_back(hidden_layers_1[i]);
 					}					
 
-					if (hiddenLayers2[j] != 0)
+					if (hidden_layers_2[j] != 0)
 					{
-						layers.push_back(hiddenLayers2[j]);
+						layers.push_back(hidden_layers_2[j]);
 					}
 					
-					MultilayerPerceptron nn(pca.getNumberOfFeatures(), layers, 10, 0.12, lambdas[k]);
+					MultilayerPerceptronClassifier nn(pca.getNumberOfFeatures(), layers, 10, 0.12, lambdas[k]);
 
-					LBFGS searchStrategy(50);
-					ObjectiveDelta stopStrategy(1e-5, iterations);
-					
 					dtime = omp_get_wtime();
 
-					nn.train(projectedTrainingSet, trainingLabels, searchStrategy, stopStrategy);
+					trainer.train(nn, training_data.topRows(training_size), training_target.leftCols(training_size));
 
 					dtime = omp_get_wtime() - dtime;
 
 					cout << "Training time: " << dtime << "s" << endl;
-																				
-					size_t trainHit = nn.predict(projectedTrainingSet)
-						.cwiseEqual(trainingLabels.topRows(trainingSize)).count();
-					size_t crossValHit = nn.predict(projectedCrossValSet)
-						.cwiseEqual(trainingLabels.bottomRows(crossValSize)).count();
 
-					cout << "Traning set accuracy: " << trainHit / (double)trainingSize << ". Cross-Validation set accuracy: "
-						<< crossValHit / (double)crossValSize << endl << endl;
+					size_t train_hit = nn.classify(training_data.topRows(training_size)).cwiseEqual(training_labels.topRows(training_size)).count();
+					size_t cross_val_hit = nn.classify(training_data.bottomRows(cross_val_size)).cwiseEqual(training_labels.bottomRows(cross_val_size)).count();
+
+					cout << "Traning set accuracy: " << train_hit / (double)training_size << ". Cross-Validation set accuracy: "
+						<< cross_val_hit / (double)cross_val_size << endl << endl;
 
 					ofstream optimizeFile(file.c_str(), std::ofstream::app);
 					
-					optimizeFile << hiddenLayers1[i] << "-" << hiddenLayers2[j] << ";" << lambdas[k] << ";" <<
-						trainHit / (double)trainingSize << ";" << crossValHit / (double)crossValSize << endl;
+					optimizeFile << hidden_layers_1[i] << "-" << hidden_layers_2[j] << ";" << lambdas[k] << ";" <<
+						train_hit / (double)training_size << ";" << cross_val_hit / (double)cross_val_size << endl;
 
 					optimizeFile.close();
 
-					if (crossValHit > maxHit)
+					if (cross_val_hit > max_hit)
 					{
-						maxHit = crossValHit;
-						hiddenLayer1 = hiddenLayers1[i];
-						hiddenLayer2 = hiddenLayers2[j];
+						max_hit = cross_val_hit;
+						hidden_layer_1 = hidden_layers_1[i];
+						hidden_layer_2 = hidden_layers_2[j];
 						lambda = lambdas[k];
 					}
 				}
@@ -226,71 +279,46 @@ void NN(vector<vector<int> >& set, bool optimize)
 		}
 		
 		cout << "Best architecture: [" << pca.getNumberOfFeatures() << " - "
-			<< hiddenLayer1 << " - " << hiddenLayer2 << " - "
+			<< hidden_layer_1 << " - " << hidden_layer_2 << " - "
 			<< 10 << "] and lambda: " << lambda
-			<< ", with accuracy: " << maxHit / (double)crossValSize << endl << endl;
+			<< ", with accuracy: " << max_hit / (double)cross_val_size << endl << endl;
 	}
 
 	cout << "Training for evaluation with architecture: [" << pca.getNumberOfFeatures() << " - "
-		<< hiddenLayer1 << " - " << hiddenLayer2 << " - "
+		<< hidden_layer_1 << " - " << hidden_layer_2 << " - "
 		<< 10 << "] and lambda: " << lambda << endl;
 
 	vector<size_t> layers;
 
-	if (hiddenLayer1 != 0)
+	if (hidden_layer_1 != 0)
 	{
-		layers.push_back(hiddenLayer1);
+		layers.push_back(hidden_layer_1);
 	}
 
-	if (hiddenLayer2 != 0)
+	if (hidden_layer_2 != 0)
 	{
-		layers.push_back(hiddenLayer2);
+		layers.push_back(hidden_layer_2);
 	}
 		
-	MultilayerPerceptron nn(pca.getNumberOfFeatures(), layers, 10, 0.12, lambda);
-	LBFGS searchStrategy(50);
-	ObjectiveDelta stopStrategy(1e-7, iterations);
-
+	MultilayerPerceptronClassifier nn(pca.getNumberOfFeatures(), layers, 10, 0.12, lambda);
+	
 	dtime = omp_get_wtime();
 
-	nn.train(pca.transform(trainingSet), trainingLabels, searchStrategy, stopStrategy);
+	trainer.train(nn, training_data, training_target);
 
 	dtime = omp_get_wtime() - dtime;
 
 	cout << "Training time: " << dtime << "s" << endl << endl;
-	
+
 	cin.get();
 
-	cout << "Loading test set" << endl;
-	
-	parseCsv("KaggleDigitRecognizer-test.csv", true, set);
+	MatrixXd test_data;
 
-	MatrixXd testSet(set.size(), features);
-
-	cout << "Moving test set to Eigen" << endl << endl;
-
-	for (size_t i = 0; i < set.size(); i++)
-	{
-		for (size_t j = 0; j < set[i].size(); j++)
-		{
-			testSet(i, j) = set[i][j] - 128;
-		}
-
-		set[i].clear();
-		vector<int>().swap(set[i]);
-		set[i].clear();
-	}
-
-	set.clear();
-	vector<vector<int>>().swap(set);
-	set.clear();
-
-	testSet = testSet / maxVal;
+	get_test_set(test_data);
 
 	cout << "Doing predictions" << endl;
 
-	//FEDE FIX
-	VectorXi predictions = nn.predict(pca.transform(testSet));
+	VectorXi result = nn.classify(pca.transform(test_data));
 
 	stringstream ss;
 
@@ -303,91 +331,49 @@ void NN(vector<vector<int> >& set, bool optimize)
 	
 	ss << layers[layers.size() - 1] << "-" << lambda << "-" << iterations << ".out";
 
-	cout << "Outputing to file " << ss.str() << endl;
-
-	ofstream outputFile(ss.str().c_str(), std::ofstream::app);
-	
-	outputFile << "ImageId,Label" << endl;
-
-	for (size_t i = 0; i < predictions.rows(); i++)
-	{
-		outputFile << i + 1 << "," << predictions(i) << endl;
-	}
-
-	outputFile.close();
+	output_result(result, ss.str());
 
 	cout << "Finished" << endl;
 }
 
-void SoftmaxLinear(vector<vector<int> >& set, bool optimize)
+void SoftmaxLinear(bool optimize)
 {
-	size_t totalSize = set.size();
-	size_t features = set[0].size() - 1;	
 	size_t iterations = 500;
 	double lambda = 1;
 
-	MatrixXd trainingSet(totalSize, features);
-	VectorXi trainingLabels(totalSize);
-	MatrixXd trainingLabelsMatrix = MatrixXd::Zero(10, totalSize);
+	MatrixXd training_data;
+	VectorXi training_labels;
+	MatrixXd training_target;
 
-	cout << "Moving training set to Eigen" << endl << endl;
-
-	for (unsigned int i = 0; i < totalSize; i++)
-	{
-		trainingLabels(i) = set[i][0];
-		trainingLabelsMatrix(set[i][0], i) = 1;
-
-		for (unsigned int j = 1; j < features + 1; j++)
-		{
-			trainingSet(i, j - 1) = set[i][j] - 128;
-		}
-
-		set[i].clear();
-		vector<int>().swap(set[i]);
-		set[i].clear();
-	}
-
-	set.clear();
-	vector<vector<int>>().swap(set);
-	set.clear();
-
-	double maxVal = trainingSet.maxCoeff();
-
-	trainingSet = trainingSet / maxVal;
+	get_training_set(training_data, training_labels, training_target);
 
 	cout << "Training PCA" << endl;
-
-	CovariancePCA pca;
-
+	PrincipalComponentAnalysis pca;
 	double dtime = omp_get_wtime();
-
-	pca.train(trainingSet);
-
+	pca.train(training_data);
 	dtime = omp_get_wtime() - dtime;
-
 	cout << "Training time: " << dtime << "s" << endl << endl;
+
+	training_data = pca.transform(training_data);
 
 	GradientDescentTrainer trainer;
 
 	if (optimize)
 	{
-		size_t trainingSize = totalSize * 3 / 4;
-		size_t crossValSize = totalSize - trainingSize;
-
-		MatrixXd projectedTrainingSet = pca.transform(trainingSet.topRows(trainingSize));
-		MatrixXd projectedCrossValSet = pca.transform(trainingSet.bottomRows(crossValSize));
+		size_t training_size = training_data.rows() * 3 / 4;
+		size_t cross_val_size = training_data.rows() - training_size;		
 
 		double lambdas[] = { 3e-5, 5e-5, 8e-5, 1e-4, 3e-4, 5e-4, 8e-4, 1e-3 ,3e-3 };
-		int lambdasSize = sizeof(lambdas) / sizeof(double);	
+		int lambdas_size = sizeof(lambdas) / sizeof(double);	
 
-		double maxHit = -1;		
+		double max_hit = -1;		
 		lambda = -1;
 
 		string file = "softmax-optimization-" + currentDateTime() + ".out";
 
 		cout << "Choosing best hyperparameters with Cross-Validation" << endl << endl;
 				
-		for (int i = 0; i < lambdasSize; i++)
+		for (int i = 0; i < lambdas_size; i++)
 		{
 			cout << "Training with lambda " << lambdas[i] << endl;
 
@@ -395,43 +381,41 @@ void SoftmaxLinear(vector<vector<int> >& set, bool optimize)
 						
 			dtime = omp_get_wtime();
 
-			trainer.train(cl, projectedTrainingSet, trainingLabelsMatrix.leftCols(trainingSize));
+			trainer.train(cl, training_data.topRows(training_size), training_target.leftCols(training_size));
 
 			dtime = omp_get_wtime() - dtime;
 
 			cout << "Training time: " << dtime << "s" << endl;
 			
-			size_t trainHit = cl.classify(projectedTrainingSet).cwiseEqual(trainingLabels.topRows(trainingSize)).count();
-			size_t crossValHit = cl.classify(projectedCrossValSet).cwiseEqual(trainingLabels.bottomRows(crossValSize)).count();
+			size_t train_hit = cl.classify(training_data.topRows(training_size)).cwiseEqual(training_labels.topRows(training_size)).count();
+			size_t cross_val_hit = cl.classify(training_data.bottomRows(cross_val_size)).cwiseEqual(training_labels.bottomRows(cross_val_size)).count();
 
-			cout << "Traning set accuracy: " << trainHit / (double)trainingSize << ". Cross-Validation set accuracy: "
-				<< crossValHit / (double)crossValSize << endl << endl;
+			cout << "Traning set accuracy: " << train_hit / (double)training_size << ". Cross-Validation set accuracy: "
+				<< cross_val_hit / (double)cross_val_size << endl << endl;
 
 			ofstream optimizeFile(file.c_str(), std::ofstream::app);
 						
-			optimizeFile << lambdas[i] << ";" << trainHit / (double)trainingSize << ";" << crossValHit / (double)crossValSize << endl;
+			optimizeFile << lambdas[i] << ";" << train_hit / (double)training_size << ";" << cross_val_hit / (double)cross_val_size << endl;
 
 			optimizeFile.close();
 
-			if (crossValHit > maxHit)
+			if (cross_val_hit > max_hit)
 			{
-				maxHit = crossValHit;
+				max_hit = cross_val_hit;
 				lambda = lambdas[i];
 			}
 		}
 			
-		cout << "Best lambda: " << lambda << ", with accuracy: " << maxHit / (double)crossValSize << endl << endl;
+		cout << "Best lambda: " << lambda << ", with accuracy: " << max_hit / (double)cross_val_size << endl << endl;
 	}
 
 	cout << "Training for evaluation with lambda " << lambda << endl;
 
 	SoftmaxLinearClassifier cl(pca.getNumberOfFeatures(), 10, 0.001, lambda);
-	LBFGS searchStrategy(50);
-	ObjectiveDelta stopStrategy(1e-7, iterations);
-
+	
 	dtime = omp_get_wtime();
 
-	trainer.train(cl, pca.transform(trainingSet), trainingLabelsMatrix);
+	trainer.train(cl, training_data, training_target);
 
 	dtime = omp_get_wtime() - dtime;
 
@@ -439,98 +423,20 @@ void SoftmaxLinear(vector<vector<int> >& set, bool optimize)
 
 	cin.get();
 
-	cout << "Loading test set" << endl;
+	MatrixXd test_data;
 
-	parseCsv("KaggleDigitRecognizer-test.csv", true, set);
-
-	MatrixXd testSet(set.size(), features);
-
-	cout << "Moving test set to Eigen" << endl << endl;
-
-	for (size_t i = 0; i < set.size(); i++)
-	{
-		for (size_t j = 0; j < set[i].size(); j++)
-		{
-			testSet(i, j) = set[i][j] - 128;
-		}
-
-		set[i].clear();
-		vector<int>().swap(set[i]);
-		set[i].clear();
-	}
-
-	set.clear();
-	vector<vector<int>>().swap(set);
-	set.clear();
-
-	testSet = testSet / maxVal;
+	get_test_set(test_data);
 
 	cout << "Doing predictions" << endl;
 		
-	VectorXi predictions = cl.classify(pca.transform(testSet));
+	VectorXi result = cl.classify(pca.transform(test_data));
 
 	stringstream ss;
+	ss << "softmax-output" << "-" << lambda << "-" << iterations << ".out";
 
-	ss << "softmax-output" << "-";	
-
-	ss << lambda << "-" << iterations << ".out";
-
-	cout << "Outputing to file " << ss.str() << endl;
-
-	ofstream outputFile(ss.str().c_str(), std::ofstream::app);
-
-	outputFile << "ImageId,Label" << endl;
-
-	for (size_t i = 0; i < predictions.rows(); i++)
-	{
-		outputFile << i + 1 << "," << predictions(i) << endl;
-	}
-
-	outputFile.close();
-
-	cout << "Finished" << endl;
-}
-
-void saveTheta(vector<MatrixXd>& theta, const char* file)
-{
-	std::ofstream f(file, std::ios::binary);
-
-	for (size_t i = 0; i < theta.size(); i++)
-	{
-		Eigen::MatrixXd::Index rows, cols;
-		rows = theta[i].rows();
-		cols = theta[i].cols();
-
-		f.write((char *)&rows, sizeof(rows));
-		f.write((char *)&cols, sizeof(cols));
-		f.write((char *)theta[i].data(), sizeof(Eigen::MatrixXd::Scalar) * rows * cols);
-	}
-
-	f.close();
-}
-
-void loadTheta(vector<MatrixXd>& theta, const char* file)
-{
-	std::ifstream f(file, std::ios::binary);
-
-	for(unsigned int i = 0; i < theta.size(); i++)
-	{
-		Eigen::MatrixXd::Index rows, cols;
+	output_result(result, ss.str());
 	
-		f.read((char *)&rows, sizeof(rows));
-		f.read((char *)&cols, sizeof(cols));
-
-		theta[i].resize(rows, cols);
-
-		f.read((char *)theta[i].data(), sizeof(Eigen::MatrixXd::Scalar) * rows * cols);
-
-		if (f.bad())
-		{
-			throw "Error reading matrix";
-		}
-	}
-
-	f.close();
+	cout << "Finished" << endl;
 }
 
 void parseCsv(string file, bool skipFirstLine, vector<vector<int> >& result, bool verbose)

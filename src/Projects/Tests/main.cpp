@@ -8,20 +8,20 @@
 #include <Eigen/Core>
 #include <omp.h>
 
-#include "../../Components/linear_classifiers/softmax_linear_classifier.h"
-#include "../../Components/linear_classifiers/svm_linear_classifier.h"
-#include "../../Components/trainers/gradient_descent/gradient_descent_trainer.h"
-
-#include "../../Components/PrincipalComponentAnalysis/CovariancePCA.h"
+#include "../../mlt/linear_classifiers/softmax_linear_classifier.h"
+#include "../../mlt/linear_classifiers/svm_linear_classifier.h"
+#include "../../mlt/trainers/gradient_descent/gradient_descent_trainer.h"
+#include "../../mlt/dimensionality_reduction/principal_component_analysis.h"
 
 using namespace std;
 using namespace Eigen;
 using namespace MLT::LinearClassifiers;
 using namespace MLT::Trainers::GradientDescent;
+using namespace MLT::DimensionalityReduction;
 
 void run(GradientDescentTrainableLinearClassifier& cl);
 
-void classify(IClassifier& cl, double normalizationFactor, CovariancePCA& trainedPca);
+void classify(IClassifier& cl, double normalizationFactor, PrincipalComponentAnalysis& trainedPca);
 
 void parse_csv(string file, bool skipFirstLine, vector<vector<int> >& result);
 
@@ -78,8 +78,8 @@ void run(GradientDescentTrainableLinearClassifier& cl)
 	training_set_eigen = training_set_eigen / maxVal;
 
 	cout << "Computing PCA" << endl;
-	CovariancePCA pca;
-	pca.train(training_set_eigen, 196);
+	PrincipalComponentAnalysis pca;
+	pca.train(training_set_eigen);
 	training_set_eigen = pca.transform(training_set_eigen);
 
 	cout << "Started trainining" << endl;
@@ -91,7 +91,7 @@ void run(GradientDescentTrainableLinearClassifier& cl)
 	classify(cl, maxVal, pca);
 }
 
-void classify(IClassifier& cl, double normalization, CovariancePCA& pca)
+void classify(IClassifier& cl, double normalization, PrincipalComponentAnalysis& pca)
 {
 	vector<vector<int> > test_set;
 	cout << "Loading test set" << endl;
