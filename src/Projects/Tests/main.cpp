@@ -1,25 +1,29 @@
+#define EIGEN_VECTORIZE_SSE4_2
 #define EIGEN_USE_MKL_ALL
 
 #include <fstream>
 #include <iostream>
 #include <stdio.h>
-#include <time.h>
 
 #include <Eigen/Core>
 #include <omp.h>
 
-#include "../../Components/LinearClassifiers/SoftmaxLinearClassifier.h"
+#include "../../Components/linear_classifiers/softmax_linear_classifier.h"
+#include "../../Components/linear_classifiers/svm_linear_classifier.h"
+#include "../../Components/trainers/gradient_descent/gradient_descent_trainer.h"
+
 #include "../../Components/PrincipalComponentAnalysis/CovariancePCA.h"
 
-using namespace Eigen;
 using namespace std;
+using namespace Eigen;
+using namespace MLT::LinearClassifiers;
+using namespace MLT::Trainers::GradientDescent;
 
-void Softmax(vector<vector<int> >& set, bool optimize = false);
+void run(GradientDescentTrainableLinearClassifier& cl);
 
-void parseCsv(string file, bool skipFirstLine, vector<vector<int> >& result);
-const string currentDateTime();
+void classify(IClassifier& cl, double normalizationFactor, CovariancePCA& trainedPca);
 
-void printIteration(unsigned long iter, const Eigen::VectorXd& x, double value, const Eigen::VectorXd& gradient);
+void parse_csv(string file, bool skipFirstLine, vector<vector<int> >& result);
 
 int main()
 {
@@ -28,109 +32,106 @@ int main()
 	
 #ifdef EIGEN_USE_MKL
 	cout << "MKL Enabled. Version: " << INTEL_MKL_VERSION << endl;
-#endif
+#endif	
 
-	vector<vector<int> > set;
-
-	cout << "Loading train set" << endl;
-
-	parseCsv("KaggleDigitRecognizer-train.csv", true, set);
-
-	cout << "Loaded train set" << endl;
-
-	Softmax(set, false);
+	if (true)
+	{
+		SoftmaxLinearClassifier cl(196, 10, 0.001, 3e-005);
+		run(cl);
+	}
+	else
+	{
+		SvmLinearClassifier cl(196, 10, 0.001, 3e-005);
+		run(cl);
+	}
 
 	cin.get();
 
 	return 0;
 }
 
-void Softmax(vector<vector<int> >& set, bool optimize)
+void run(GradientDescentTrainableLinearClassifier& cl)
 {
-	size_t totalSize = set.size();
-	size_t features = set[0].size() - 1;
-	size_t iterations = 250;
-	double lambda = 3e-005;	
-			
-	MatrixXd trainingSet(set.size(), features);
-	VectorXi trainingLabels(set.size());		
+	vector<vector<int> > training_set;
+	cout << "Loading training set" << endl;
+	parse_csv("KaggleDigitRecognizer-train.csv", true, training_set);
 
-	cout << "Moving train set to Eigen Matrix" << endl;
+	size_t m = training_set.size();
+	size_t features = training_set[0].size() - 1;
 
-	for(unsigned int i = 0; i < set.size() ; i++)
+	MatrixXd training_set_eigen(m, features);
+	MatrixXd training_labels_eigen = MatrixXd::Zero(10, m);
+
+	cout << "Moving training set to Eigen Matrix" << endl;
+
+	for (unsigned int i = 0; i < m; i++)
 	{
-		trainingLabels(i) = set[i][0];
+		training_labels_eigen(training_set[i][0], i) = 1;
 
-		for(unsigned int j = 1; j < set[i].size(); j++)
+		for (unsigned int j = 1; j < features; j++)
 		{
-			trainingSet(i, j - 1) = set[i][j] - 128;
+			training_set_eigen(i, j - 1) = training_set[i][j] - 128;
 		}
 	}
 
-	double maxVal = trainingSet.maxCoeff();
-	
-	trainingSet = trainingSet / maxVal;
+	double maxVal = training_set_eigen.maxCoeff();
+	training_set_eigen = training_set_eigen / maxVal;
 
+	cout << "Computing PCA" << endl;
 	CovariancePCA pca;
-	pca.train(trainingSet);
-	MatrixXd projected = pca.transform(trainingSet);
+	pca.train(training_set_eigen, 196);
+	training_set_eigen = pca.transform(training_set_eigen);
 
 	cout << "Started trainining" << endl;
-	
-	for (int i = 0; i < 10; i++)
+
+	GradientDescentTrainer trainer;
+
+	trainer.train(cl, training_set_eigen, training_labels_eigen);
+
+	classify(cl, maxVal, pca);
+}
+
+void classify(IClassifier& cl, double normalization, CovariancePCA& pca)
+{
+	vector<vector<int> > test_set;
+	cout << "Loading test set" << endl;
+	parse_csv("KaggleDigitRecognizer-test.csv", true, test_set);
+
+	cout << "Moving test set to Eigen Matrix" << endl;
+
+	MatrixXd test_set_eigen(test_set.size(), test_set[0].size());
+
+	for (size_t i = 0; i < test_set.size(); i++)
 	{
-		SoftmaxLinearClassifier cl(projected.cols(), 10, lambda);
-		LBFGS searchStrategy(50);
-		ObjectiveDelta stopStrategy(1e-7, iterations);
-
-		double dtime = omp_get_wtime();
-
-		cl.train(projected, trainingLabels, searchStrategy, stopStrategy);
-
-		dtime = omp_get_wtime() - dtime;
-
-		cout << "Training Time: " << dtime << "s" << endl;
-	}
-	
-	return;
-
-	/*cin.get();
-
-	parseCsv("KaggleDigitRecognizer-test.csv", true, set);
-
-	MatrixXd testSet(set.size(), features);
-
-	for (size_t i = 0; i < set.size(); i++)
-	{
-		for (size_t j = 0; j < set[i].size(); j++)
+		for (size_t j = 0; j < test_set[i].size(); j++)
 		{
-			testSet(i, j) = set[i][j] - 128;
+			test_set_eigen(i, j) = test_set[i][j] - 128;
 		}
 	}
 
-	testSet = testSet / maxVal;
+	test_set_eigen = test_set_eigen / normalization;
+	test_set_eigen = pca.transform(test_set_eigen);
 
-	VectorXi predictions = cl.predict(pca.projectData(testSet));
+	cout << "Started classifing" << endl;
+
+	VectorXi predictions = cl.classify(test_set_eigen);
 
 	stringstream ss;
 
-	ss << "softmax-output" << "-";	
-	
-	ss << lambda << "-" << iterations << ".out";
+	ofstream output_file("prediction.out", std::ofstream::app);
 
-	ofstream outputFile(ss.str().c_str(), std::ofstream::app);
-	
-	outputFile << "ImageId,Label" << endl;
+	output_file << "ImageId,Label" << endl;
 
 	for (size_t i = 0; i < predictions.rows(); i++)
 	{
-		outputFile << i + 1 << "," << predictions(i) << endl;
+		output_file << i + 1 << "," << predictions(i) << endl;
 	}
 
-	outputFile.close();*/
+	output_file.close();
 }
 
-void parseCsv(string file, bool skipFirstLine, vector<vector<int> >& result)
+
+void parse_csv(string file, bool skipFirstLine, vector<vector<int> >& result)
 {
 	result.clear();
 	ifstream str(file.c_str());
@@ -143,32 +144,15 @@ void parseCsv(string file, bool skipFirstLine, vector<vector<int> >& result)
 
 	while (getline(str, line))
 	{
-		vector<int> currentLine;
-		std::stringstream lineStream(line);
+		vector<int> current_line;
+		std::stringstream line_stream(line);
 		std::string cell;
 
-		while(getline(lineStream, cell, ','))
+		while (getline(line_stream, cell, ','))
 		{
-			currentLine.push_back(atoi(cell.c_str()));
+			current_line.push_back(atoi(cell.c_str()));
 		}
 
-		result.push_back(currentLine);
+		result.push_back(current_line);
 	}
-}
-
-const string currentDateTime()
-{
-	time_t     now = time(0);
-    struct tm  tstruct;
-    char       buf[80];
-    tstruct = *localtime(&now);
-    
-    strftime(buf, sizeof(buf), "%Y%m%d%H%M%S", &tstruct);
-
-    return buf;
-}
-
-void printIteration(unsigned long iter, const Eigen::VectorXd& x, double value, const Eigen::VectorXd& gradient)
-{
-	std::cout << "iteration: " << iter << "   objective: " << value << std::endl;
 }

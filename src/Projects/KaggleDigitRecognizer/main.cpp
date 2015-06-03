@@ -7,12 +7,15 @@
 #include <Eigen/Core>
 #include <omp.h>
 
-using namespace Eigen;
-using namespace std;
-
-#include "../../Components/LinearClassifiers/SoftmaxLinearClassifier.h"
+#include "../../Components/linear_classifiers/softmax_linear_classifier.h"
+#include "../../Components/trainers/gradient_descent/gradient_descent_trainer.h"
 #include "../../Components/NeuralNetworks/MultilayerPerceptron.h"
 #include "../../Components/PrincipalComponentAnalysis/CovariancePCA.h"
+
+using namespace std;
+using namespace Eigen;
+using namespace MLT::LinearClassifiers;
+using namespace MLT::Trainers::GradientDescent;
 
 void NN(vector<vector<int> >& set, bool optimize = false);
 void SoftmaxLinear(vector<vector<int> >& set, bool optimize);
@@ -50,10 +53,11 @@ bool askYesNoQuestion(const string& question)
 void printIteration(unsigned long iter, const Eigen::VectorXd& x, double loss, const Eigen::VectorXd& gradient);
 
 void buildInfo()
-{	
+{
 #ifdef EIGEN_USE_MKL
 	cout << "Using MKL " << INTEL_MKL_VERSION << " as backend" << endl;
 	cout << "Max Threads: " << MKL_Get_Max_Threads() << endl;
+	cout << "SIMD Instruction Sets In Use: " << Eigen::SimdInstructionSetsInUse() << endl;
 #else
 	cout << "Using Eigen " << EIGEN_WORLD_VERSION << "." << EIGEN_MAJOR_VERSION << "." << EIGEN_MINOR_VERSION << " as backend" << endl;
 	cout << "Max Threads: " << Eigen::nbThreads() << endl;
@@ -92,9 +96,9 @@ void NN(vector<vector<int> >& set, bool optimize)
 {
 	size_t totalSize = set.size();	
 	size_t features = set[0].size() - 1;
-	int hiddenLayer1 = 500;
-	int hiddenLayer2 = 500;
-	size_t iterations = 250;
+	int hiddenLayer1 = 1000;
+	int hiddenLayer2 = 250;	
+	size_t iterations = 250;	
 	double lambda = 1;
 
 	MatrixXd trainingSet(totalSize, features);
@@ -144,7 +148,7 @@ void NN(vector<vector<int> >& set, bool optimize)
 		MatrixXd projectedTrainingSet = pca.transform(trainingSet.topRows(trainingSize));
 		MatrixXd projectedCrossValSet = pca.transform(trainingSet.bottomRows(crossValSize));
 
-		double lambdas[] = { 0.0001, 0.001, 0.01, 1, 10 };
+		double lambdas[] = { 1, 10, 20, 30 };
 		int hiddenLayers1[] = { 250, 500, 1000 };
 		int hiddenLayers2[] = { 0, 250, 500, 1000 };
 		int lambdasSize = sizeof(lambdas) / sizeof(double);
@@ -158,7 +162,7 @@ void NN(vector<vector<int> >& set, bool optimize)
 
 		string file = "mlp-optimization-" + currentDateTime() + ".out";
 
-		cout << "Choosing best hyperparameters with Cross-Validation" << endl;
+		cout << "Choosing best hyperparameters with Cross-Validation" << endl << endl;
 
 		for(int i = 0; i < hiddenLayers1Size; i++)
 		{
@@ -185,22 +189,28 @@ void NN(vector<vector<int> >& set, bool optimize)
 					MultilayerPerceptron nn(pca.getNumberOfFeatures(), layers, 10, 0.12, lambdas[k]);
 
 					LBFGS searchStrategy(50);
-					ObjectiveDelta stopStrategy(1e-7, iterations);
+					ObjectiveDelta stopStrategy(1e-5, iterations);
+					
+					dtime = omp_get_wtime();
 
 					nn.train(projectedTrainingSet, trainingLabels, searchStrategy, stopStrategy);
-										
+
+					dtime = omp_get_wtime() - dtime;
+
+					cout << "Training time: " << dtime << "s" << endl;
+																				
 					size_t trainHit = nn.predict(projectedTrainingSet)
 						.cwiseEqual(trainingLabels.topRows(trainingSize)).count();
 					size_t crossValHit = nn.predict(projectedCrossValSet)
 						.cwiseEqual(trainingLabels.bottomRows(crossValSize)).count();
 
 					cout << "Traning set accuracy: " << trainHit / (double)trainingSize << ". Cross-Validation set accuracy: "
-						<< crossValHit / (double)crossValSize << endl;
+						<< crossValHit / (double)crossValSize << endl << endl;
 
 					ofstream optimizeFile(file.c_str(), std::ofstream::app);
 					
-					optimizeFile << hiddenLayer1 << "-" << hiddenLayer2 << ";" << lambdas[k] << ";" << 
-						trainHit / (double)trainingSize << crossValHit / (double)crossValSize << endl;
+					optimizeFile << hiddenLayers1[i] << "-" << hiddenLayers2[j] << ";" << lambdas[k] << ";" <<
+						trainHit / (double)trainingSize << ";" << crossValHit / (double)crossValSize << endl;
 
 					optimizeFile.close();
 
@@ -208,7 +218,7 @@ void NN(vector<vector<int> >& set, bool optimize)
 					{
 						maxHit = crossValHit;
 						hiddenLayer1 = hiddenLayers1[i];
-						hiddenLayer2 = hiddenLayers2[i];
+						hiddenLayer2 = hiddenLayers2[j];
 						lambda = lambdas[k];
 					}
 				}
@@ -280,7 +290,7 @@ void NN(vector<vector<int> >& set, bool optimize)
 	cout << "Doing predictions" << endl;
 
 	//FEDE FIX
-	VectorXi predictions = static_cast<NeuralNetworkBase<MultilayerPerceptron>>(nn).predict(pca.transform(testSet));
+	VectorXi predictions = nn.predict(pca.transform(testSet));
 
 	stringstream ss;
 
@@ -288,7 +298,7 @@ void NN(vector<vector<int> >& set, bool optimize)
 
 	for (size_t l = 0; l < layers.size() - 1; l++)
 	{
-		ss << layers[l] << ".";
+		ss << layers[l] << "-";
 	}
 	
 	ss << layers[layers.size() - 1] << "-" << lambda << "-" << iterations << ".out";
@@ -318,12 +328,14 @@ void SoftmaxLinear(vector<vector<int> >& set, bool optimize)
 
 	MatrixXd trainingSet(totalSize, features);
 	VectorXi trainingLabels(totalSize);
+	MatrixXd trainingLabelsMatrix = MatrixXd::Zero(10, totalSize);
 
 	cout << "Moving training set to Eigen" << endl << endl;
 
 	for (unsigned int i = 0; i < totalSize; i++)
 	{
 		trainingLabels(i) = set[i][0];
+		trainingLabelsMatrix(set[i][0], i) = 1;
 
 		for (unsigned int j = 1; j < features + 1; j++)
 		{
@@ -355,6 +367,8 @@ void SoftmaxLinear(vector<vector<int> >& set, bool optimize)
 
 	cout << "Training time: " << dtime << "s" << endl << endl;
 
+	GradientDescentTrainer trainer;
+
 	if (optimize)
 	{
 		size_t trainingSize = totalSize * 3 / 4;
@@ -371,31 +385,31 @@ void SoftmaxLinear(vector<vector<int> >& set, bool optimize)
 
 		string file = "softmax-optimization-" + currentDateTime() + ".out";
 
-		cout << "Choosing best hyperparameters with Cross-Validation" << endl;
-		
+		cout << "Choosing best hyperparameters with Cross-Validation" << endl << endl;
+				
 		for (int i = 0; i < lambdasSize; i++)
 		{
 			cout << "Training with lambda " << lambdas[i] << endl;
 
 			SoftmaxLinearClassifier cl(pca.getNumberOfFeatures(), 10, 0.001, lambdas[i]);
+						
+			dtime = omp_get_wtime();
+
+			trainer.train(cl, projectedTrainingSet, trainingLabelsMatrix.leftCols(trainingSize));
+
+			dtime = omp_get_wtime() - dtime;
+
+			cout << "Training time: " << dtime << "s" << endl;
 			
-			BFGS searchStrategy;
-			ObjectiveDelta stopStrategy(1e-7, iterations);
-
-			cl.train(projectedTrainingSet, trainingLabels, searchStrategy, stopStrategy);
-
-			//FEDE FIX
-			size_t trainHit = static_cast<LinearClassifierBase<SoftmaxLinearClassifier>>(cl).predict(projectedTrainingSet)
-				.cwiseEqual(trainingLabels.topRows(trainingSize)).count();
-			size_t crossValHit = static_cast<LinearClassifierBase<SoftmaxLinearClassifier>>(cl).predict(projectedCrossValSet)
-				.cwiseEqual(trainingLabels.bottomRows(crossValSize)).count();
+			size_t trainHit = cl.classify(projectedTrainingSet).cwiseEqual(trainingLabels.topRows(trainingSize)).count();
+			size_t crossValHit = cl.classify(projectedCrossValSet).cwiseEqual(trainingLabels.bottomRows(crossValSize)).count();
 
 			cout << "Traning set accuracy: " << trainHit / (double)trainingSize << ". Cross-Validation set accuracy: "
-				<< crossValHit / (double)crossValSize << endl;
+				<< crossValHit / (double)crossValSize << endl << endl;
 
 			ofstream optimizeFile(file.c_str(), std::ofstream::app);
 						
-			optimizeFile << lambdas[i] << ";" << trainHit / (double)trainingSize << crossValHit / (double)crossValSize << endl;
+			optimizeFile << lambdas[i] << ";" << trainHit / (double)trainingSize << ";" << crossValHit / (double)crossValSize << endl;
 
 			optimizeFile.close();
 
@@ -417,7 +431,7 @@ void SoftmaxLinear(vector<vector<int> >& set, bool optimize)
 
 	dtime = omp_get_wtime();
 
-	cl.train(pca.transform(trainingSet), trainingLabels, searchStrategy, stopStrategy);
+	trainer.train(cl, pca.transform(trainingSet), trainingLabelsMatrix);
 
 	dtime = omp_get_wtime() - dtime;
 
@@ -452,9 +466,8 @@ void SoftmaxLinear(vector<vector<int> >& set, bool optimize)
 	testSet = testSet / maxVal;
 
 	cout << "Doing predictions" << endl;
-
-	//FEDE FIX
-	VectorXi predictions = static_cast<LinearClassifierBase<SoftmaxLinearClassifier>>(cl).predict(pca.transform(testSet));
+		
+	VectorXi predictions = cl.classify(pca.transform(testSet));
 
 	stringstream ss;
 
