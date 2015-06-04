@@ -23,7 +23,7 @@ namespace LinearClassifiers
 		{
 			MatrixXd theta = MatrixXd::Map(parameters.data(), this->_output, this->_input + 1);
 			
-			Eigen::MatrixXd scores = this->_score(theta, x);
+			MatrixXd scores = this->_score(theta, x);
 			scores.rowwise() -= scores.colwise().maxCoeff();
 			scores = scores.array().exp();
 			scores = scores.array().rowwise() / scores.colwise().sum().array();

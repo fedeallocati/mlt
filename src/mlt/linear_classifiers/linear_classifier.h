@@ -78,11 +78,12 @@ namespace LinearClassifiers
 			this->_input = input;
 			this->_output = output;
 
-			this->_theta = MatrixXd::Random(output, input + 1) * initial_epsilon;
+			this->_theta = MatrixXd::Random(this->_output, this->_input + 1) * initial_epsilon;
 		}
 
 		MatrixXd _score(const Eigen::MatrixXd& theta, const Eigen::MatrixXd& x) const
 		{
+			assert(x.cols() == this->_input + 1);
 			return theta * x.transpose();
 		}
 				

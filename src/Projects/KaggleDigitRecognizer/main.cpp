@@ -8,6 +8,7 @@
 #include <omp.h>
 
 #include "../../mlt/linear_classifiers/softmax_linear_classifier.h"
+#include "../../mlt/linear_classifiers/svm_linear_classifier.h"
 #include "../../mlt/trainers/gradient_descent/gradient_descent_trainer.h"
 #include "../../mlt/neural_networks/multilayer_perceptron_classifier.h"
 #include "../../mlt/dimensionality_reduction/principal_component_analysis.h"
@@ -20,7 +21,7 @@ using namespace MLT::Trainers::GradientDescent;
 using namespace MLT::DimensionalityReduction;
 
 void NN(bool optimize);
-void SoftmaxLinear(bool optimize);
+void Linear(bool softmax, bool optimize);
 
 void parseCsv(string file, bool skipFirstLine, vector<vector<int> >& result, bool verbose = false);
 const string currentDateTime();
@@ -68,17 +69,14 @@ int main()
 {	
 	buildInfo();
 	cout << endl;
-
-	bool mlp = askYesNoQuestion("Use Multilayer Perceptron?");
-	bool optimize = askYesNoQuestion("Optimize Hyperparameters?");
-
-	if (mlp)
+	
+	if (askYesNoQuestion("Use Multilayer Perceptron?"))
 	{
-		NN(optimize);
+		NN(askYesNoQuestion("Optimize Hyperparameters?"));
 	}
 	else
 	{
-		SoftmaxLinear(optimize);
+		Linear(askYesNoQuestion("Use Softmax?"), askYesNoQuestion("Optimize Hyperparameters?"));
 	}
 	
 	cin.get();
@@ -336,7 +334,7 @@ void NN(bool optimize)
 	cout << "Finished" << endl;
 }
 
-void SoftmaxLinear(bool optimize)
+void Linear(bool softmax, bool optimize)
 {
 	size_t iterations = 500;
 	double lambda = 1;
@@ -369,7 +367,16 @@ void SoftmaxLinear(bool optimize)
 		double max_hit = -1;		
 		lambda = -1;
 
-		string file = "softmax-optimization-" + currentDateTime() + ".out";
+		string file;
+
+		if (softmax)
+		{
+			file = "linearsoftmax-optimization-" + currentDateTime() + ".out";
+		}
+		else
+		{
+			file = "linearsvm-optimization-" + currentDateTime() + ".out";
+		}
 
 		cout << "Choosing best hyperparameters with Cross-Validation" << endl << endl;
 				
@@ -377,32 +384,65 @@ void SoftmaxLinear(bool optimize)
 		{
 			cout << "Training with lambda " << lambdas[i] << endl;
 
-			SoftmaxLinearClassifier cl(pca.getNumberOfFeatures(), 10, 0.001, lambdas[i]);
-						
-			dtime = omp_get_wtime();
-
-			trainer.train(cl, training_data.topRows(training_size), training_target.leftCols(training_size));
-
-			dtime = omp_get_wtime() - dtime;
-
-			cout << "Training time: " << dtime << "s" << endl;
-			
-			size_t train_hit = cl.classify(training_data.topRows(training_size)).cwiseEqual(training_labels.topRows(training_size)).count();
-			size_t cross_val_hit = cl.classify(training_data.bottomRows(cross_val_size)).cwiseEqual(training_labels.bottomRows(cross_val_size)).count();
-
-			cout << "Traning set accuracy: " << train_hit / (double)training_size << ". Cross-Validation set accuracy: "
-				<< cross_val_hit / (double)cross_val_size << endl << endl;
-
-			ofstream optimizeFile(file.c_str(), std::ofstream::app);
-						
-			optimizeFile << lambdas[i] << ";" << train_hit / (double)training_size << ";" << cross_val_hit / (double)cross_val_size << endl;
-
-			optimizeFile.close();
-
-			if (cross_val_hit > max_hit)
+			if (softmax)
 			{
-				max_hit = cross_val_hit;
-				lambda = lambdas[i];
+				SoftmaxLinearClassifier cl(pca.getNumberOfFeatures(), 10, 0.001, lambdas[i]);
+
+				dtime = omp_get_wtime();
+
+				trainer.train(cl, training_data.topRows(training_size), training_target.leftCols(training_size));
+
+				dtime = omp_get_wtime() - dtime;
+
+				cout << "Training time: " << dtime << "s" << endl;
+
+				size_t train_hit = cl.classify(training_data.topRows(training_size)).cwiseEqual(training_labels.topRows(training_size)).count();
+				size_t cross_val_hit = cl.classify(training_data.bottomRows(cross_val_size)).cwiseEqual(training_labels.bottomRows(cross_val_size)).count();
+
+				cout << "Traning set accuracy: " << train_hit / (double)training_size << ". Cross-Validation set accuracy: "
+					<< cross_val_hit / (double)cross_val_size << endl << endl;
+
+				ofstream optimizeFile(file.c_str(), std::ofstream::app);
+
+				optimizeFile << lambdas[i] << ";" << train_hit / (double)training_size << ";" << cross_val_hit / (double)cross_val_size << endl;
+
+				optimizeFile.close();
+
+				if (cross_val_hit > max_hit)
+				{
+					max_hit = cross_val_hit;
+					lambda = lambdas[i];
+				}
+			}
+			else
+			{
+				SvmLinearClassifier cl(pca.getNumberOfFeatures(), 10, 0.001, lambdas[i]);
+
+				dtime = omp_get_wtime();
+
+				trainer.train(cl, training_data.topRows(training_size), training_target.leftCols(training_size));
+
+				dtime = omp_get_wtime() - dtime;
+
+				cout << "Training time: " << dtime << "s" << endl;
+
+				size_t train_hit = cl.classify(training_data.topRows(training_size)).cwiseEqual(training_labels.topRows(training_size)).count();
+				size_t cross_val_hit = cl.classify(training_data.bottomRows(cross_val_size)).cwiseEqual(training_labels.bottomRows(cross_val_size)).count();
+
+				cout << "Traning set accuracy: " << train_hit / (double)training_size << ". Cross-Validation set accuracy: "
+					<< cross_val_hit / (double)cross_val_size << endl << endl;
+
+				ofstream optimizeFile(file.c_str(), std::ofstream::app);
+
+				optimizeFile << lambdas[i] << ";" << train_hit / (double)training_size << ";" << cross_val_hit / (double)cross_val_size << endl;
+
+				optimizeFile.close();
+
+				if (cross_val_hit > max_hit)
+				{
+					max_hit = cross_val_hit;
+					lambda = lambdas[i];
+				}
 			}
 		}
 			
@@ -411,31 +451,61 @@ void SoftmaxLinear(bool optimize)
 
 	cout << "Training for evaluation with lambda " << lambda << endl;
 
-	SoftmaxLinearClassifier cl(pca.getNumberOfFeatures(), 10, 0.001, lambda);
-	
-	dtime = omp_get_wtime();
+	if (softmax)
+	{
+		SoftmaxLinearClassifier cl(pca.getNumberOfFeatures(), 10, 0.001, lambda);
 
-	trainer.train(cl, training_data, training_target);
+		dtime = omp_get_wtime();
 
-	dtime = omp_get_wtime() - dtime;
+		trainer.train(cl, training_data, training_target);
 
-	cout << "Training time: " << dtime << "s" << endl << endl;
+		dtime = omp_get_wtime() - dtime;
 
-	cin.get();
+		cout << "Training time: " << dtime << "s" << endl << endl;
 
-	MatrixXd test_data;
+		cin.get();
 
-	get_test_set(test_data);
+		MatrixXd test_data;
 
-	cout << "Doing predictions" << endl;
-		
-	VectorXi result = cl.classify(pca.transform(test_data));
+		get_test_set(test_data);
 
-	stringstream ss;
-	ss << "softmax-output" << "-" << lambda << "-" << iterations << ".out";
+		cout << "Doing predictions" << endl;
 
-	output_result(result, ss.str());
-	
+		VectorXi result = cl.classify(pca.transform(test_data));
+
+		stringstream ss;
+		ss << "linearsoftmax-output" << "-" << lambda << "-" << iterations << ".out";
+
+		output_result(result, ss.str());
+	}
+	else
+	{
+		SvmLinearClassifier cl(pca.getNumberOfFeatures(), 10, 0.001, lambda);
+
+		dtime = omp_get_wtime();
+
+		trainer.train(cl, training_data, training_target);
+
+		dtime = omp_get_wtime() - dtime;
+
+		cout << "Training time: " << dtime << "s" << endl << endl;
+
+		cin.get();
+
+		MatrixXd test_data;
+
+		get_test_set(test_data);
+
+		cout << "Doing predictions" << endl;
+
+		VectorXi result = cl.classify(pca.transform(test_data));
+
+		stringstream ss;
+		ss << "linearsvm-output" << "-" << lambda << "-" << iterations << ".out";
+
+		output_result(result, ss.str());
+	}
+
 	cout << "Finished" << endl;
 }
 

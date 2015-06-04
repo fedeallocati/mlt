@@ -128,6 +128,7 @@ namespace NeuralNetworks
 
 			assert(parameters.size() == counter);
 
+			counter = 0;
 			for (size_t i = 0; i < this->_theta.size(); i++)
 			{
 				this->_theta[i] = MatrixXd::Map(parameters.data() + counter, this->_theta[i].rows(), this->_theta[i].cols());

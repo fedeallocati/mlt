@@ -34,7 +34,7 @@ int main()
 	cout << "MKL Enabled. Version: " << INTEL_MKL_VERSION << endl;
 #endif	
 
-	if (true)
+	if (false)
 	{
 		SoftmaxLinearClassifier cl(196, 10, 0.001, 3e-005);
 		run(cl);
