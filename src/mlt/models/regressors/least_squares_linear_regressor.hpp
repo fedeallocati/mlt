@@ -7,6 +7,12 @@
 namespace mlt {
 namespace models {
 namespace regressors {
+    
+    // Implementation of Least Squares Linear Regression
+    // Categories: 
+    // - Application: Regressor
+    // - Parametrization: Parametrized
+    // - Method of Training: Self-Trainable, Derivative-Free, Gradient-Based   
     template <typename Params>
     class LeastSquaresLinearRegressor {
     public:        
