@@ -15,7 +15,7 @@ Machine Learning Toolkit in C++
 - **Clusterers** : Used to group data on a defined number of clusters
 
 ### Parametrization:
-- **Parametrized** : The model learns parameters from the data, which later are used to calculate the prediction
+- **Parametrized** : The model learns a fixed amount of parameters from the data, which later are used to calculate the prediction
 - **Non-Parametrized** : The model keeps the data (or a transformation of it), and then uses it to calculate the prediction (this models usually are **Self-Trainable**)
 
 ### Method of training:
@@ -23,6 +23,6 @@ Machine Learning Toolkit in C++
 - **Gradient-Based** : Models that provide a cost/fitness function and its derivative, allowing for gradient based optimization algorithms to find the best parameters
 - **Self-Trainable** : Models that train themselves, without the need of an external trainers
 
-Note that a model may fall into more than one of this categories, e.g. `LinearRegressor` is **Self-Trainable** through the normal equations, and also **Grandient-Based** trained trough gradient descent; a `MultiLayerPerceptron` may give a vector of values with the support for each class, but the label of the class with the greatest support as well.
+Note that a model may fall into more than one of this categories, e.g. `LeastSquaresLinearRegressor` is **Self-Trainable** through the normal equations, and also **Grandient-Based** trained trough gradient descent (via the `cost` and `cost_gradients` functions); a `MultiLayerPerceptron` may give a vector of values with the support for each class, but the label of the class with the greatest support as well.
 
 This taxonomies are not implemented as interfaces, to avoid the use of vtables, although on the future they may be implemented trough template metaprogramming, but it is guaranteed that methods of the same category have the same name (e.g. `self_train(...)` for self training, `regress(...)` for regression) for all the models (so you can exchange classes that fall within the same category)

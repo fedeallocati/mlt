@@ -10,7 +10,7 @@
 #include <omp.h>
 
 #include "../../examples/misc/misc.hpp"
-#include "../../mlt/models/regressors/linear_regressor.hpp"
+#include "../../mlt/models/regressors/least_squares_linear_regressor.hpp"
 
 using namespace std;
 using namespace Eigen;
@@ -24,7 +24,7 @@ inline double correletedTarget(double x) {
 }
 
 struct Params {
-	struct LinearRegression {
+	struct LeastSquaresLinearRegression {
 		static const int size = 2;
 	};
 };
@@ -38,17 +38,17 @@ int main() {
 #endif	
 
 	auto input_v = parse_csv<double>("house_data.csv", ',');
-	MatrixXd input(input_v.size(), Params::LinearRegression::size + 1);
+	MatrixXd input(input_v.size(), Params::LeastSquaresLinearRegression::size + 1);
 	VectorXd target(input_v.size(), 1);
 
 	auto i = 0;
 	for (const vector<double>& row : input_v) {
 		input(i, 0) = 1;
-		for (auto j = 0; j < Params::LinearRegression::size; j++) {
+		for (auto j = 0; j < Params::LeastSquaresLinearRegression::size; j++) {
 			input(i, j + 1) = row[j];
 		}
 
-		target(i) = row[Params::LinearRegression::size];
+		target(i) = row[Params::LeastSquaresLinearRegression::size];
 		i++;
 	}
 
@@ -68,13 +68,16 @@ int main() {
 		cout << "x = [" << input.row(i) << "], y = " << target(i) << endl;
 	}
 
-	mlt::models::regressors::LinearRegressor<Params> lr;
+	mlt::models::regressors::LeastSquaresLinearRegressor<Params> lr;
 	cout << "Train Time: " << benchmark<std::chrono::milliseconds>([&]() { lr.self_train(input, target); }).count() << "ms\n Theta: \n" << lr.params() << endl << endl;
+	
+	cout << "Cost: " << lr.cost(input, target) << endl;
+	cout << "Cost Gradient: " << endl;
+	cout << lr.cost_gradient(input, target) << endl;
 
 	Vector3d test(1.0, 1650.0, 3.0);
 	cout << lr.regress(test) << endl;
-
-
+	
 	cin.get();
 	return 0;
 }
