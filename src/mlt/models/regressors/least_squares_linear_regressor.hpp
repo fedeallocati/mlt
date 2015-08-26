@@ -9,65 +9,84 @@ namespace models {
 namespace regressors {
     
     // Implementation of Least Squares Linear Regression
-    // Categories: 
+    // Categorization: 
     // - Application: Regressor
     // - Parametrization: Parametrized
     // - Method of Training: Self-Trainable, Derivative-Free, Gradient-Based   
-    template <typename Params>
     class LeastSquaresLinearRegressor {
-    public:        
-		typedef Params::LeastSquaresLinearRegression params_t;
-		typedef Eigen::Matrix<double, params_t::size + 1, 1> beta_t;
-		typedef Eigen::Matrix<double, params_t::size + 1, 1> single_input_t;
-		typedef Eigen::Matrix<double, 1, 1> single_result_t;
-		typedef Eigen::Matrix<double, Eigen::Dynamic, params_t::size + 1> multiple_input_t;
-		typedef Eigen::Matrix<double, Eigen::Dynamic, 1> multiple_result_t;
+	public:			
+		LeastSquaresLinearRegressor() : _input(0) {}
 
-		const static size_t input = params_t::size;
-		const static bool add_intercept = true;
-		const static size_t output = 1;
-		const static size_t params_size = params_t::size + 1;
+		LeastSquaresLinearRegressor(size_t input) : _input(input), _beta(Eigen::VectorXd::Zero(input + 1)) {}
 
-		inline void init() {
-			_beta = beta_t::Zero();
+		// Disable copy constructors
+		LeastSquaresLinearRegressor(const LeastSquaresLinearRegressor& other) = delete;
+		LeastSquaresLinearRegressor& operator=(const LeastSquaresLinearRegressor& other) = delete;
+
+		inline size_t input() const {
+			assert(_input != 0);
+			return _input;
 		}
 
-		inline single_result_t regress(single_input_t input) const {			
+		inline size_t output() const {
+			return 1;
+		}
+
+		inline bool add_intercept() const {
+			return true;
+		}
+
+		inline bool is_initialized() const {
+			return _input != 0;
+		}
+
+		inline void reset() {
+			assert(_input != 0);
+			_beta.setZero();
+		}
+
+		inline Eigen::VectorXd regress_single(const Eigen::VectorXd& input) const {
 			return _beta.transpose() * input;
         }
 
-		inline multiple_result_t regress(multiple_input_t input) const {
+		inline Eigen::VectorXd regress_multi(const Eigen::MatrixXd& input) const {
 			return input * _beta;
 		}
 
-		inline const beta_t& params() const {
+		inline size_t params_size() const {
+			assert(_input != 0);
+			return _input + 1;
+		}
+
+		inline const Eigen::VectorXd& params() const {
 			return _beta;
 		}
 
-		inline void set_params(const beta_t& beta) {
+		inline void set_params(const Eigen::VectorXd& beta) {
 			_beta = beta;
+			_input = beta.size() - 1;
 		}
 
-		inline double cost(multiple_input_t input, multiple_result_t result) const {
+		inline double cost(const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {
 			return cost(_beta, input, result);
 		}
 
-		inline double cost(beta_t beta, multiple_input_t input, multiple_result_t result) const {
-			return ((input * beta) - result).array().pow(2).sum() / (2 * result.rows());
+		inline double cost(const Eigen::VectorXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {
+			return ((input * beta) - result).squaredNorm() / (2 * result.rows());
 		}
-
-		inline beta_t cost_gradient(multiple_input_t input, multiple_result_t result) const {
+		
+		inline Eigen::VectorXd cost_gradient(const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {
 			return cost_gradient(_beta, input, result);
 		}
 
-		inline beta_t cost_gradient(beta_t beta, multiple_input_t input, multiple_result_t result) const {
-			return (1 / result.rows()) * (input.transpose() * ((input * beta) - result));
+		inline Eigen::VectorXd cost_gradient(const Eigen::VectorXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {
+			return (input.transpose() * ((input * beta) - result)) / result.rows();
 		}
 
-		void self_train(multiple_input_t input, multiple_result_t result, bool reset = false) {
+		void self_train(const Eigen::MatrixXd& input, const Eigen::MatrixXd& result, bool reset = false) {
 			// Moore-Penrose pseudoinverse
 			double epsilon = 1e-9;
-			Eigen::JacobiSVD<MatrixXd> svd(input.transpose() * input, Eigen::ComputeThinU | Eigen::ComputeThinV);
+			Eigen::JacobiSVD<Eigen::MatrixXd> svd(input.transpose() * input, Eigen::ComputeThinU | Eigen::ComputeThinV);
 			const auto singVals = svd.singularValues();
 			auto invSingVals = singVals;
 			for (int i = 0; i < singVals.rows(); i++) {
@@ -81,10 +100,12 @@ namespace regressors {
 
 			// Closed-form solution of Least Squares Linear Regression
 			_beta = inv * input.transpose() * result;
+			_input = _beta.size() - 1;
 		}	
 
-    protected:
-		beta_t _beta;
+    protected:		
+		size_t _input;
+		Eigen::VectorXd _beta;
 	};
 }
 }

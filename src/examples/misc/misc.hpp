@@ -1,16 +1,25 @@
 #ifndef EXAMPLES_MISC_HPP
 #define EXAMPLES_MISC_HPP
 
+#include <iostream>
+#include <Eigen/Core>
+#include <type_traits>
 #include <vector>
 #include <string>
 #include <fstream>
 #include <sstream>
 #include <chrono>
-#include <type_traits>
+
+inline void print_info() {
+	std::cout << "#Threads: " << Eigen::nbThreads() << std::endl;
+	std::cout << "SIMD Instruction Sets In Use: " << Eigen::SimdInstructionSetsInUse() << std::endl;
+#ifdef EIGEN_USE_MKL
+	std::cout << "MKL Enabled. Version: " << INTEL_MKL_VERSION << std::endl;
+#endif
+}
 
 template <typename T>
-typename std::enable_if<std::is_floating_point<T>::value, std::vector<std::vector<T> > >::type parse_csv(std::string file, char separator = ',')
-{
+typename std::enable_if<std::is_floating_point<T>::value, std::vector<std::vector<T> > >::type parse_csv(std::string file, char separator = ',') {
 	std::vector<std::vector<T>> result;
 	std::ifstream fin(file.c_str());
 	
@@ -48,8 +57,7 @@ typename std::enable_if<std::is_floating_point<T>::value, std::vector<std::vecto
 }
 
 template <typename T>
-typename std::enable_if<std::is_integral<T>::value, std::vector<std::vector<T> > >::type parse_csv(std::string file, char separator = ',')
-{
+typename std::enable_if<std::is_integral<T>::value, std::vector<std::vector<T> > >::type parse_csv(std::string file, char separator = ',') {
 	std::vector<std::vector<T>> result;
 	std::ifstream fin(file.c_str());
 
@@ -82,7 +90,7 @@ typename std::enable_if<std::is_integral<T>::value, std::vector<std::vector<T> >
 	return result;
 }
 
-template <typename T, typename F>
+template <typename T = std::chrono::milliseconds, typename F>
 T benchmark(F f) {
 	auto t1 = std::chrono::steady_clock::now();
 
