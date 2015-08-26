@@ -13,6 +13,9 @@
 using namespace std;
 using namespace Eigen;
 
+using namespace mlt::models::regressors;
+using namespace mlt::trainers::gradient_based;
+
 inline VectorXd correletedData(double x) {
 	return (VectorXd(8) << 1, x, 2 * x, x*x, 5, 6, 3 * x, 0.5 * x).finished();
 }
@@ -26,9 +29,9 @@ struct Params {
 		static constexpr int epochs = 400;
 		static constexpr int batch_size = 0;
 		static constexpr double learning_rate = 0.01;
-		static constexpr double learning_rate_decay = 1;
-		static constexpr double momentum = 0.9;
-		static constexpr bool nesterov_momentum = true;		
+		static constexpr double learning_rate_decay = 1;		
+		static constexpr gradient_descent_update_t update_method = gradient_descent_update_t::gradient_descent;
+		static constexpr double update_param = 0;
 	};
 };
 
@@ -64,10 +67,10 @@ int main() {
 
 	cout << std::setprecision(6) << endl;
 
-	typedef mlt::models::regressors::LeastSquaresLinearRegressor LSLR_t;
+	LeastSquaresLinearRegressor LSLR_t;
 
-	LSLR_t lr1(2);
-	mlt::trainers::gradient_based::GradientDescentTrainer<Params, LSLR_t> gdt(lr1);
+	LeastSquaresLinearRegressor lr1(2);
+	GradientDescentTrainer<Params, LeastSquaresLinearRegressor> gdt(lr1);
 	
 	long long time = benchmark([&]() { gdt.train(input, target); }).count();
 	
@@ -76,7 +79,7 @@ int main() {
 	cout << "Cost Gradient: " << endl;
 	cout << lr1.cost_gradient(input, target) << endl << endl;
 
-	mlt::models::regressors::LeastSquaresLinearRegressor lr2;
+	LeastSquaresLinearRegressor lr2;
 	time = benchmark([&]() { lr2.self_train(input, target); }).count();
 	cout << "Train Time: " << time << "ms" << endl;
 	cout << "Theta: \n" << lr2.params() << endl << endl;

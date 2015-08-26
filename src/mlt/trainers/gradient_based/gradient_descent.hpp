@@ -10,6 +10,14 @@
 namespace mlt {
 namespace trainers {
 namespace gradient_based {
+
+	enum gradient_descent_update_t {
+		gradient_descent = 0,
+		momentum,
+		nesterov_momentum,
+		adagrad,
+		rmsprop
+	};
     
     // Implementation of Gradient Descent Trainer
     // Parameters:
@@ -17,13 +25,14 @@ namespace gradient_based {
 	// - int batch_size: size of each batch when using mini-batches (set to 0 if using full batch gradient descent)
 	// - double learning_rate: initial learning rate
 	// - double learning_rate_decay: learning_rate is multiplied by this after each epoch
-	// - double momentum: the amount of momentum applied on each descent (set to 0 if don't want to use momentum)
-	// - bool nesterov_momentum: indicates whether to use Nesterov's Accelerated Momentum or normal Momentum update rule	
+	// - gradient_descent_update_t update_method: indicates what is the update rule to use
+	// - double update_param: if update_method is momentum or nesterov_momentum the amount of momentum applied on each,
+	//						  descent (set to 0 if don't want to use momentum); if it is rmsprop, the decay_rate parameter	
 	template <typename Params, typename Model>
     class GradientDescentTrainer {
 	public:
 		typedef Model model_t;
-		GradientDescentTrainer(model_t& model) : _model(model), _epochs(0), _velocity(Eigen::VectorXd::Zero(model.params_size())) {}
+		GradientDescentTrainer(model_t& model) : _model(model), _epochs(0), _update_method_cache(Eigen::VectorXd::Zero(model.params_size())) {}
 
 		// Disable copy constructors
 		GradientDescentTrainer(const GradientDescentTrainer& other) = delete;
@@ -39,7 +48,7 @@ namespace gradient_based {
 			if (reset) {
 				_model.reset();
 				_epochs = 0;
-				_velocity = Eigen::VectorXd::Zero(_model.params_size());
+				_update_method_cache = Eigen::VectorXd::Zero(_model.params_size());
 			}
 
 			auto iters_per_epoch = params_t::batch_size > 0 && params_t::batch_size <= input.rows() ? input.rows() / params_t::batch_size : 1;
@@ -72,19 +81,30 @@ namespace gradient_based {
 					}
 
 					Eigen::VectorXd grad = _model.cost_gradient(params, input_batch, result_batch);
-					VectorXd velocity_prev = _velocity;
-
-					if (params_t::momentum > 0) {
-						_velocity = params_t::momentum * _velocity - learning_rate * grad;
-					} else {
-						_velocity = - learning_rate * grad;
+					switch (params_t::update_method) {
+					case gradient_descent_update_t::gradient_descent:
+						params += -learning_rate * grad;
+						break;
+					case gradient_descent_update_t::momentum:
+						_update_method_cache = params_t::update_param * _update_method_cache - learning_rate * grad;
+						params += _update_method_cache;
+						break;
+					case gradient_descent_update_t::nesterov_momentum:
+					{
+						VectorXd velocity_prev = _update_method_cache;
+						_update_method_cache = params_t::update_param * _update_method_cache - learning_rate * grad;
+						params += -params_t::update_param * velocity_prev + (1 + params_t::update_param) * _update_method_cache;
+						break;
 					}
-
-					if (params_t::nesterov_momentum && params_t::momentum > 0) {
-						params += -params_t::momentum * velocity_prev + (1 + params_t::momentum) * _velocity;
-					} else {						
-						params += _velocity;
-					}					
+					case gradient_descent_update_t::adagrad:
+						_update_method_cache += grad.array().pow(2).matrix();
+						params += -learning_rate * (grad.array() / (_update_method_cache.array() + 1e-8).sqrt()).matrix();
+						break;
+					case gradient_descent_update_t::rmsprop:
+						_update_method_cache = params_t::update_param * _update_method_cache + (1 - params_t::update_param) * grad.array().pow(2).matrix();						
+						params += -learning_rate * (grad.array() / (_update_method_cache.array() + 1e-8).sqrt()).matrix();
+						break;
+					}
 				}
 
 				learning_rate *= params_t::learning_rate_decay;
@@ -98,7 +118,7 @@ namespace gradient_based {
 		typedef Params::GradientDescent params_t;
 		model_t& _model;
 		size_t _epochs;
-		Eigen::VectorXd _velocity;
+		Eigen::VectorXd _update_method_cache;
 	};
 }
 }
