@@ -1,5 +1,5 @@
 #define EIGEN_USE_MKL_ALL
-#define MLT_VERBOSE_TRAINING
+//#define MLT_VERBOSE_TRAINING
 
 #include <iostream>
 #include <iomanip>
@@ -45,63 +45,98 @@ tuple<MatrixXd, MatrixXd> house_value_dataset() {
 	return make_tuple(input, target);
 }
 
-inline VectorXd correletedData(double x) {
-	return (VectorXd(8) << 1, x, 2 * x, x*x, 5, 6, 3 * x, 0.5 * x).finished();
+inline VectorXd correlatedData(double x) {
+	return (VectorXd(4) << 1, x, 2 * x, 0.5 * x*x).finished();
 }
 
-inline VectorXd correletedTarget(double x) {
-	return Vector2d(5 * x + 3, -2 * x - 10);
+inline VectorXd correlatedTarget(double x) {
+	return (VectorXd(2) << 5 * x + 3, x).finished();
 }
 
 tuple<MatrixXd, MatrixXd> correlated_data_dataset(int n) {	
 	VectorXd points = VectorXd::Random(n, 1) * 100;
-	MatrixXd input(points.rows(), 3);
-	MatrixXd target(points.rows(), 2);
+	MatrixXd input(points.rows(), correlatedData(1).rows());
+	MatrixXd target(points.rows(), correlatedTarget(1).rows());
 
 	for (auto i = 0; i < points.rows(); i++) {
-		input.row(i) = correletedData(points(i)).topRows(input.cols());
-		target.row(i) = correletedTarget(points(i));
+		input.row(i) = correlatedData(points(i)).topRows(input.cols());
+		target.row(i) = correlatedTarget(points(i));
 	}
 
 	return make_tuple(input, target);
 }
 
-int main() {
-	print_info();
-
+void example(tuple<MatrixXd, MatrixXd> data, VectorXd test) {
 	MatrixXd input, target;
 
-	std::tie(input, target) = house_value_dataset();
+	std::tie(input, target) = data;
+
+	cout << "First 10 examples from the dataset: " << endl;
+
+	for (auto i = 0; i < 10; i++) {
+		cout << " x = [";
+
+		for (auto j = 0; j < input.cols() - 1; j++) {
+			cout << input(i, j) << " ";
+		}
+
+		cout << input(i, input.cols() - 1) << "], y = [";
+
+		for (auto j = 0; j < target.cols() - 1; j++) {
+			cout << target(i, j) << " ";
+		}
+
+		cout << target(i, target.cols() - 1) << "]" << endl;
+	}
 
 	// Normalize input features
-	input.rightCols(input.cols() - 1).rowwise() -= input.rightCols(input.cols() - 1).colwise().mean();
+	RowVectorXd mean = input.rightCols(input.cols() - 1).colwise().mean();
+	input.rightCols(input.cols() - 1).rowwise() -= mean;
 	MatrixXd cov = (input.rightCols(input.cols() - 1).adjoint() * input.rightCols(input.cols() - 1)) / double(input.rows() - 1);
-	input.array().rightCols(input.cols() - 1).rowwise() /= cov.diagonal().transpose().array().sqrt();
-
-	cout << std::setprecision(6) << endl;
-
-	LeastSquaresLinearRegressor LSLR_t;
-
-	LeastSquaresLinearRegressor lr1(input.cols() - 1, target.cols());
-	GradientDescentTrainer<Params, LeastSquaresLinearRegressor> gdt(lr1);
-	
-	auto time = benchmark([&]() { gdt.train(input, target); }).count();
-	
-	cout << "Train Time: " << time << "ms\nTheta: \n" << lr1.params() << endl << endl;
-	cout << "Cost: " << lr1.cost(input, target) << endl;
-	cout << "Cost Gradient: " << endl;
-	cout << lr1.cost_gradient(input, target) << endl << endl;
-
-	LeastSquaresLinearRegressor lr2;
-	auto time2 = benchmark([&]() { lr2.self_train(input, target); }).count();
-	cout << "Train Time: " << time2 << "ms" << endl;
-	cout << "Theta: \n" << lr2.params() << endl << endl;
-
-	cout << "Cost: " << lr2.cost(input, target) << endl;	
-	cout << "Cost Gradient: " << endl;
-	cout << lr2.cost_gradient(input, target) << endl;
+	RowVectorXd sigma = cov.diagonal().transpose().cwiseSqrt();
+	input.array().rightCols(input.cols() - 1).rowwise() /= sigma.array();
 		
+	LeastSquaresLinearRegressor lr1(input.cols() - 1, target.cols());
+	LeastSquaresLinearRegressor lr2;
+
+	GradientDescentTrainer<Params, LeastSquaresLinearRegressor> gdt(lr1);
+
+	cout << "Training with Gradient Descent..." << endl;
+	auto time1 = benchmark([&]() { gdt.train(input, target); }).count();
+	cout << "Training with Normal Equations.." << endl;
+	auto time2 = benchmark([&]() { lr2.self_train(input, target); }).count();
+
+	cout << endl;
+	cout << "Train Time: \t" << time1 << "ms\t" << time2 << "ms" << endl << endl;
+	
+	MatrixXd params(lr1.params_size(), 2);
+	params.col(0) = lr1.params();
+	params.col(1) = lr2	.params();		
+	
+	cout << "Params Found: " << endl << params << endl << endl;
+	cout << "Train Cost: \t" << lr1.cost(input, target) << "\t" << lr2.cost(input, target) << endl << endl;
+
+	MatrixXd gradients(lr1.params_size(), 2);
+	gradients.col(0) = lr1.cost_gradient(input, target);
+	gradients.col(1) = lr2.cost_gradient(input, target);
+
+	cout << "Cost Gradient: " << endl << gradients << endl << endl;
+
+	MatrixXd predictions(target.cols(), 2);
+	VectorXd test_norm = test;
+	test_norm.bottomRows(input.cols() - 1) -= mean.transpose();
+	test_norm.bottomRows(input.cols() - 1) = test_norm.bottomRows(input.cols() - 1).cwiseQuotient(sigma.transpose());
+
+	predictions.col(0) = lr1.regress_single(test_norm);
+	predictions.col(1) = lr2.regress_single(test_norm);
+	cout << "Prediction for test: " << endl << predictions << endl << endl;
 	cin.get();
+}
+
+int main() {
+	print_info();
+	example(house_value_dataset(), Vector3d(1, 1650, 3));
+	example(correlated_data_dataset(1000000), correlatedData(0));
 
 	return 0;
 }
