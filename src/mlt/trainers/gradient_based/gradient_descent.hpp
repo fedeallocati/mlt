@@ -108,6 +108,10 @@ namespace gradient_based {
 				}
 
 				learning_rate *= params_t::learning_rate_decay;
+
+				#ifdef MLT_VERBOSE_TRAINING
+				std::cout << "Finished epoch " << epoch << "/" << params_t::epochs << ": cost " << _model.cost(params, input, result) << endl;
+				#endif
 			}
 
 			_epochs += params_t::epochs;
@@ -116,6 +120,7 @@ namespace gradient_based {
 
 	protected:
 		typedef Params::GradientDescent params_t;
+
 		model_t& _model;
 		size_t _epochs;
 		Eigen::VectorXd _update_method_cache;
