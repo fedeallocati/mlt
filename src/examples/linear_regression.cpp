@@ -6,9 +6,9 @@
 
 #include <Eigen/Eigen>
 
-#include "../../examples/misc/misc.hpp"
-#include "../../mlt/models/regressors/least_squares_linear_regressor.hpp"
-#include "../../mlt/trainers/gradient_based/gradient_descent.hpp"
+#include "misc.hpp"
+#include "../mlt/models/regressors/least_squares_linear_regressor.hpp"
+#include "../mlt/trainers/gradient_based/gradient_descent.hpp"
 
 using namespace std;
 using namespace Eigen;
@@ -27,46 +27,7 @@ struct Params {
 	};
 };
 
-tuple<MatrixXd, MatrixXd> house_value_dataset() {
-	auto input_v = parse_csv<double>("house_data.csv", ',');
-	MatrixXd input(input_v.size(), 3);
-	VectorXd target(input_v.size(), 1);
-
-	auto i = 0;
-	for (const vector<double>& row : input_v) {
-		input(i, 0) = 1;
-		for (auto j = 0; j < 2; j++) {
-			input(i, j + 1) = row[j];
-		}
-		target(i) = row[2];
-		i++;
-	}
-	
-	return make_tuple(input, target);
-}
-
-inline VectorXd correlatedData(double x) {
-	return (VectorXd(4) << 1, x, 2 * x, 0.5 * x*x).finished();
-}
-
-inline VectorXd correlatedTarget(double x) {
-	return (VectorXd(2) << 5 * x + 3, x).finished();
-}
-
-tuple<MatrixXd, MatrixXd> correlated_data_dataset(int n) {	
-	VectorXd points = VectorXd::Random(n, 1) * 100;
-	MatrixXd input(points.rows(), correlatedData(1).rows());
-	MatrixXd target(points.rows(), correlatedTarget(1).rows());
-
-	for (auto i = 0; i < points.rows(); i++) {
-		input.row(i) = correlatedData(points(i)).topRows(input.cols());
-		target.row(i) = correlatedTarget(points(i));
-	}
-
-	return make_tuple(input, target);
-}
-
-void example(tuple<MatrixXd, MatrixXd> data, VectorXd test) {
+void lr_example(tuple<MatrixXd, MatrixXd> data, VectorXd test) {
 	MatrixXd input, target;
 
 	std::tie(input, target) = data;
@@ -131,12 +92,4 @@ void example(tuple<MatrixXd, MatrixXd> data, VectorXd test) {
 	predictions.col(1) = lr2.regress_single(test_norm);
 	cout << "Prediction for test: " << endl << predictions << endl << endl;
 	cin.get();
-}
-
-int main() {
-	print_info();
-	example(house_value_dataset(), Vector3d(1, 1650, 3));
-	example(correlated_data_dataset(1000000), correlatedData(0));
-
-	return 0;
 }

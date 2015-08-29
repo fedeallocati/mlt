@@ -20,9 +20,13 @@ Machine Learning Toolkit in C++
 - **Non-Parametrized** : The model keeps the data (or a transformation of it), and then uses it to calculate the prediction (this models usually are **Self-Trainable**)
 
 ### Method of training:
-- **Self-Trainable** : Models that train themselves, without the need of an external trainers
+- **Self-Trainable** : Models that train themselves, without the need of an external trainer
 - **Derivative-Free** : Models that provide a cost/fitness function, which can be used by derivative free optimization algorithms to evaluate the performance of a set of parameters
 - **Gradient-Based** : Models that provide a cost/fitness function and its derivative, allowing for gradient based optimization algorithms to find the best parameters
+
+### Supervision:
+- **Supervised** : Models that take the expected output when training
+- **Unsupervised** : Models that just take the input data when training
 
 Note that a model may fall into more than one of this categories, e.g. `LeastSquaresLinearRegressor` is **Self-Trainable** through the normal equations, and also **Grandient-Based** trained trough gradient descent (via the `cost` and `cost_gradients` functions); a `MultiLayerPerceptron` may give a vector of values with the support for each class, but the label of the class with the greatest support as well.
 

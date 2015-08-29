@@ -13,6 +13,7 @@ namespace regressors {
     // - Application: Regressor
     // - Parametrization: Parametrized
     // - Method of Training: Self-Trainable, Derivative-Free, Gradient-Based   
+	// - Supervision: Supervised
     class LeastSquaresLinearRegressor {
 	public:			
 		LeastSquaresLinearRegressor() : _init(false) {}
@@ -52,10 +53,12 @@ namespace regressors {
 		}
 
 		inline Eigen::VectorXd regress_single(const Eigen::VectorXd& input) const {
+			assert(_init);
 			return _beta.transpose() * input;
         }
 
 		inline Eigen::VectorXd regress_multi(const Eigen::MatrixXd& input) const {
+			assert(_init);
 			return input * _beta;
 		}
 
