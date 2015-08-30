@@ -1,11 +1,10 @@
 Machine Learning Toolkit in C++
 =============
 
-### There are 3 main components on MLT:
+### There are 2 main components on MLT:
 
 - **Models** : They perform the regression/classification/clustering task
 - **Trainers** : They are used to train the models
-- **Optimizers** : They minimize/maximize given functions
 
 ## Taxonomies of Models:
 ### Application:

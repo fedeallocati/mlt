@@ -1,8 +1,10 @@
+List of things to implement:
+
 ### Models
 #### Regressors:
--LocallyWeightedLinearRegression
--RidgeRegression
--LassoRegression
+- LocallyWeightedLinearRegression
+- RidgeRegression
+- LassoRegression
 
 #### Classifiers:
 - LogisticRegression
@@ -24,7 +26,7 @@
 ### Trainers
 - LBFGSTrainer
 
-### Datasets
+### Multiple Common Datasets for doing tests and examples
 
 ### Tests:
 - PrincipalComponentAnalysis
