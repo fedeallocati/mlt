@@ -80,7 +80,7 @@ namespace gradient_based {
 						}
 					}
 
-					Eigen::VectorXd grad = _model.cost_gradient(params, input_batch, result_batch);
+					Eigen::VectorXd grad = std::get<1>(_model.cost_and_gradient(params, input_batch, result_batch));
 					switch (params_t::update_method) {
 					case gradient_descent_update_t::gradient_descent:
 						params += -learning_rate * grad;

@@ -1,5 +1,5 @@
-#ifndef LEAST_SQUARES_LINEAR_REGRESSOR_HPP
-#define LEAST_SQUARES_LINEAR_REGRESSOR_HPP
+#ifndef LEAST_SQUARES_LINEAR_REGRESSION_HPP
+#define LEAST_SQUARES_LINEAR_REGRESSION_HPP
 
 #include <Eigen/Core>
 #include <Eigen/SVD>
@@ -14,15 +14,15 @@ namespace regressors {
     // - Parametrization: Parametrized
     // - Method of Training: Self-Trainable, Derivative-Free, Gradient-Based   
 	// - Supervision: Supervised
-    class LeastSquaresLinearRegressor {
+    class LeastSquaresLinearRegression {
 	public:			
-		LeastSquaresLinearRegressor() : _init(false) {}
+		LeastSquaresLinearRegression() : _init(false) {}
 
-		LeastSquaresLinearRegressor(size_t input, size_t output) : _init(true), _beta(Eigen::MatrixXd::Zero(input + 1, output)) {}
+		LeastSquaresLinearRegression(size_t input, size_t output) : _init(true), _beta(Eigen::MatrixXd::Zero(input + 1, output)) {}
 
 		// Disable copy constructors
-		LeastSquaresLinearRegressor(const LeastSquaresLinearRegressor& other) = delete;
-		LeastSquaresLinearRegressor& operator=(const LeastSquaresLinearRegressor& other) = delete;
+		LeastSquaresLinearRegression(const LeastSquaresLinearRegression& other) = delete;
+		LeastSquaresLinearRegression& operator=(const LeastSquaresLinearRegression& other) = delete;
 
 		inline size_t input() const {
 			assert(_init);
@@ -57,7 +57,7 @@ namespace regressors {
 			return _beta.transpose() * input;
         }
 
-		inline Eigen::VectorXd regress_multi(const Eigen::MatrixXd& input) const {
+		inline Eigen::MatrixXd regress_multi(const Eigen::MatrixXd& input) const {
 			assert(_init);
 			return input * _beta;
 		}
@@ -87,16 +87,16 @@ namespace regressors {
 			return _cost_internal(Eigen::Map<const Eigen::MatrixXd>(beta.data(), _beta.rows(), _beta.cols()), input, result);
 		}
 		
-		inline Eigen::VectorXd cost_gradient(const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {
+		inline std::tuple<double, Eigen::VectorXd> cost_and_gradient(const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {
 			assert(_init);
-			Eigen::MatrixXd gradient = _cost_gradient_internal(_beta, input, result);
-			return Eigen::Map<Eigen::VectorXd>(gradient.data(), gradient.size());
+			auto c_a_g = _cost_and_gradient_internal(_beta, input, result);
+			return std::make_tuple(std::get<0>(c_a_g), Eigen::Map<Eigen::VectorXd>(std::get<1>(c_a_g).data(), std::get<1>(c_a_g).size()));
 		}
 
-		inline Eigen::VectorXd cost_gradient(const Eigen::VectorXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {
-			assert(_init);			
-			Eigen::MatrixXd gradient = _cost_gradient_internal(Eigen::Map<const Eigen::MatrixXd>(beta.data(), _beta.rows(), _beta.cols()), input, result);
-			return Eigen::Map<Eigen::VectorXd>(gradient.data(), gradient.size());
+		inline std::tuple<double, Eigen::VectorXd> cost_and_gradient(const Eigen::VectorXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {
+			assert(_init);
+			auto c_a_g = _cost_and_gradient_internal(Eigen::Map<const Eigen::MatrixXd>(beta.data(), _beta.rows(), _beta.cols()), input, result);
+			return std::make_tuple(std::get<0>(c_a_g), Eigen::Map<Eigen::VectorXd>(std::get<1>(c_a_g).data(), std::get<1>(c_a_g).size()));
 		}
 
 		void self_train(const Eigen::MatrixXd& input, const Eigen::MatrixXd& result, bool reset = false) {
@@ -124,8 +124,11 @@ namespace regressors {
 			return ((input * beta) - result).array().pow(2).sum() / (2 * result.rows());
 		}
 
-		inline Eigen::MatrixXd _cost_gradient_internal(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {
-			return (input.transpose() * ((input * beta) - result)) / result.rows();
+		inline std::tuple<double, Eigen::MatrixXd> _cost_and_gradient_internal(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {
+			Eigen::MatrixXd diff = input * beta - result;
+			double loss = diff.array().pow(2).sum() / (2 * input.rows());
+			Eigen::MatrixXd d_beta = (input.transpose() * diff) / input.rows();
+			return std::make_tuple(loss, d_beta);
 		}
 
 		bool _init;

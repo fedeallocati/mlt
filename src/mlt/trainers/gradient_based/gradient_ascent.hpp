@@ -80,7 +80,7 @@ namespace gradient_based {
 						}
 					}
 
-					Eigen::VectorXd grad = _model.fitness_gradient(params, input_batch, result_batch);
+					Eigen::VectorXd grad = std::get<1>(_model.fitness_and_gradient(params, input_batch, result_batch));
 					switch (params_t::update_method) {
 					case gradient_ascent_update_t::gradient_ascent:
 						params += learning_rate * grad;

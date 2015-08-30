@@ -7,7 +7,7 @@
 #include <Eigen/Eigen>
 
 #include "misc.hpp"
-#include "../mlt/models/regressors/least_squares_linear_regressor.hpp"
+#include "../mlt/models/regressors/least_squares_linear_regression.hpp"
 #include "../mlt/trainers/gradient_based/gradient_descent.hpp"
 
 using namespace std;
@@ -18,9 +18,9 @@ using namespace mlt::trainers::gradient_based;
 
 struct Params {
 	struct GradientDescent {
-		static constexpr int epochs = 400;
+		static constexpr int epochs = 800;
 		static constexpr int batch_size = 0;
-		static constexpr double learning_rate = 0.01;
+		static constexpr double learning_rate = 0.001;
 		static constexpr double learning_rate_decay = 1;
 		static constexpr gradient_descent_update_t update_method = gradient_descent_update_t::gradient_descent;
 		static constexpr double update_param = 0;
@@ -57,10 +57,10 @@ void lr_example(tuple<MatrixXd, MatrixXd> data, VectorXd test) {
 	RowVectorXd sigma = cov.diagonal().transpose().cwiseSqrt();
 	input.array().rightCols(input.cols() - 1).rowwise() /= sigma.array();
 		
-	LeastSquaresLinearRegressor lr1(input.cols() - 1, target.cols());
-	LeastSquaresLinearRegressor lr2;
+	LeastSquaresLinearRegression lr1(input.cols() - 1, target.cols());
+	LeastSquaresLinearRegression lr2;
 
-	GradientDescentTrainer<Params, LeastSquaresLinearRegressor> gdt(lr1);
+	GradientDescentTrainer<Params, LeastSquaresLinearRegression> gdt(lr1);
 
 	cout << "Training with Gradient Descent..." << endl;
 	auto time1 = benchmark([&]() { gdt.train(input, target); }).count();
@@ -78,8 +78,8 @@ void lr_example(tuple<MatrixXd, MatrixXd> data, VectorXd test) {
 	cout << "Train Cost: \t" << lr1.cost(input, target) << "\t" << lr2.cost(input, target) << endl << endl;
 
 	MatrixXd gradients(lr1.params_size(), 2);
-	gradients.col(0) = lr1.cost_gradient(input, target);
-	gradients.col(1) = lr2.cost_gradient(input, target);
+	gradients.col(0) = get<1>(lr1.cost_and_gradient(input, target));
+	gradients.col(1) = get<1>(lr2.cost_and_gradient(input, target));
 
 	cout << "Cost Gradient: " << endl << gradients << endl << endl;
 
