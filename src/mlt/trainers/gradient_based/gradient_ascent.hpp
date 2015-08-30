@@ -1,5 +1,5 @@
-#ifndef GRADIENT_DESCENT_TRAINER_HPP
-#define GRADIENT_DESCENT_TRAINER_HPP
+#ifndef GRADIENT_ASCENT_TRAINER_HPP
+#define GRADIENT_ASCENT_TRAINER_HPP
 
 #include <vector>
 #include <algorithm>
@@ -11,32 +11,32 @@ namespace mlt {
 namespace trainers {
 namespace gradient_based {
 
-	enum gradient_descent_update_t {
-		gradient_descent = 0,
+	enum gradient_ascent_update_t {
+		gradient_ascent = 0,
 		momentum,
 		nesterov_momentum,
 		adagrad,
 		rmsprop
 	};
     
-    // Implementation of Gradient Descent Trainer
+    // Implementation of Gradient Ascent Trainer
     // Parameters:
-	// - int epochs: number of epochs to run the descent steps through the training data
+	// - int epochs: number of epochs to run the ascent steps through the training data
 	// - int batch_size: size of each batch when using mini-batches (set to 0 if using full batch gradient descent)
 	// - double learning_rate: initial learning rate
 	// - double learning_rate_decay: learning_rate is multiplied by this after each epoch
-	// - gradient_descent_update_t update_method: indicates what is the update rule to use
+	// - gradient_ascent_update_t update_method: indicates what is the update rule to use
 	// - double update_param: if update_method is momentum or nesterov_momentum the amount of momentum applied on each
-	//						  descent; if it is rmsprop, the decay_rate parameter	
+	//						  ascent; if it is rmsprop, the decay_rate parameter	
 	template <typename Params, typename Model>
-    class GradientDescentTrainer {
+    class GradientAscentTrainer {
 	public:
 		typedef Model model_t;
-		GradientDescentTrainer(model_t& model) : _model(model), _epochs(0), _update_method_cache(Eigen::VectorXd::Zero(model.params_size())) {}
+		GradientAscentTrainer(model_t& model) : _model(model), _epochs(0), _update_method_cache(Eigen::VectorXd::Zero(model.params_size())) {}
 
 		// Disable copy constructors
-		GradientDescentTrainer(const GradientDescentTrainer& other) = delete;
-		GradientDescentTrainer& operator=(const GradientDescentTrainer& other) = delete;
+		GradientAscentTrainer(const GradientAscentTrainer& other) = delete;
+		GradientAscentTrainer& operator=(const GradientAscentTrainer& other) = delete;
 
 		inline const model_t& model() const {
 			return _model;
@@ -80,29 +80,29 @@ namespace gradient_based {
 						}
 					}
 
-					Eigen::VectorXd grad = _model.cost_gradient(params, input_batch, result_batch);
+					Eigen::VectorXd grad = _model.fitness_gradient(params, input_batch, result_batch);
 					switch (params_t::update_method) {
-					case gradient_descent_update_t::gradient_descent:
-						params += -learning_rate * grad;
+					case gradient_ascent_update_t::gradient_ascent:
+						params += learning_rate * grad;
 						break;
-					case gradient_descent_update_t::momentum:
-						_update_method_cache = params_t::update_param * _update_method_cache - learning_rate * grad;
+					case gradient_ascent_update_t::momentum:
+						_update_method_cache = params_t::update_param * _update_method_cache + learning_rate * grad;
 						params += _update_method_cache;
 						break;
-					case gradient_descent_update_t::nesterov_momentum:
+					case gradient_ascent_update_t::nesterov_momentum:
 					{
 						VectorXd velocity_prev = _update_method_cache;
-						_update_method_cache = params_t::update_param * _update_method_cache - learning_rate * grad;
+						_update_method_cache = params_t::update_param * _update_method_cache + learning_rate * grad;
 						params += -params_t::update_param * velocity_prev + (1 + params_t::update_param) * _update_method_cache;
 						break;
 					}
-					case gradient_descent_update_t::adagrad:
+					case gradient_ascent_update_t::adagrad:
 						_update_method_cache += grad.array().pow(2).matrix();
-						params += -learning_rate * (grad.array() / (_update_method_cache.array() + 1e-8).sqrt()).matrix();
+						params += learning_rate * (grad.array() / (_update_method_cache.array() + 1e-8).sqrt()).matrix();
 						break;
-					case gradient_descent_update_t::rmsprop:
+					case gradient_ascent_update_t::rmsprop:
 						_update_method_cache = params_t::update_param * _update_method_cache + (1 - params_t::update_param) * grad.array().pow(2).matrix();						
-						params += -learning_rate * (grad.array() / (_update_method_cache.array() + 1e-8).sqrt()).matrix();
+						params += learning_rate * (grad.array() / (_update_method_cache.array() + 1e-8).sqrt()).matrix();
 						break;
 					}
 				}
@@ -110,7 +110,7 @@ namespace gradient_based {
 				learning_rate *= params_t::learning_rate_decay;
 
 				#ifdef MLT_VERBOSE_TRAINING
-				std::cout << "Finished epoch " << epoch << "/" << params_t::epochs << ": cost " << _model.cost(params, input, result) << endl;
+				std::cout << "Finished epoch " << epoch << "/" << params_t::epochs << ": fitness " << _model.fitness(params, input, result) << endl;
 				#endif
 			}
 
@@ -119,7 +119,7 @@ namespace gradient_based {
 		}
 
 	protected:
-		typedef Params::GradientDescent params_t;
+		typedef Params::GradientAscent params_t;
 
 		model_t& _model;
 		size_t _epochs;
