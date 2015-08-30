@@ -11,94 +11,94 @@
 #include <chrono>
 
 inline void print_info() {
-	std::cout << "#Threads: " << Eigen::nbThreads() << std::endl;
-	std::cout << "SIMD Instruction Sets In Use: " << Eigen::SimdInstructionSetsInUse() << std::endl;
+    std::cout << "#Threads: " << Eigen::nbThreads() << std::endl;
+    std::cout << "SIMD Instruction Sets In Use: " << Eigen::SimdInstructionSetsInUse() << std::endl;
 #ifdef EIGEN_USE_MKL
-	std::cout << "MKL Enabled. Version: " << INTEL_MKL_VERSION << std::endl;
+    std::cout << "MKL Enabled. Version: " << INTEL_MKL_VERSION << std::endl;
 #endif
 }
 
 template <typename T>
 typename std::enable_if<std::is_floating_point<T>::value, std::vector<std::vector<T> > >::type parse_csv(std::string file, char separator = ',') {
-	std::vector<std::vector<T>> result;
-	std::ifstream fin(file.c_str());
-	
-	int row_length = -1;
+    std::vector<std::vector<T>> result;
+    std::ifstream fin(file.c_str());
+    
+    int row_length = -1;
 
-	for (std::string line; getline(fin, line);) {
-		auto comment = line.find_first_of('#');
-		if (comment != line.npos) {
-			line = line.substr(0, comment);
-		}
+    for (std::string line; getline(fin, line);) {
+        auto comment = line.find_first_of('#');
+        if (comment != line.npos) {
+            line = line.substr(0, comment);
+        }
 
-		std::vector<T> row;
-		if (row_length > 0) {
-			row.reserve(row_length);
-		}
+        std::vector<T> row;
+        if (row_length > 0) {
+            row.reserve(row_length);
+        }
 
-		std::istringstream line_stream(line);
-		std::string cell;
+        std::istringstream line_stream(line);
+        std::string cell;
 
-		while (getline(line_stream, cell, separator)) {
-			if (cell.find('.') == cell.npos){
-				row.push_back(atoi(cell.c_str()));
-			} else {
-				row.push_back(atof(cell.c_str()));
-			}
-		}
+        while (getline(line_stream, cell, separator)) {
+            if (cell.find('.') == cell.npos){
+                row.push_back(atoi(cell.c_str()));
+            } else {
+                row.push_back(atof(cell.c_str()));
+            }
+        }
 
-		if (row.size() > 0) {
-			result.push_back(row);
-			row_length = row.size();
-		}
-	}
+        if (row.size() > 0) {
+            result.push_back(row);
+            row_length = row.size();
+        }
+    }
 
-	return result;
+    return result;
 }
 
 template <typename T>
 typename std::enable_if<std::is_integral<T>::value, std::vector<std::vector<T> > >::type parse_csv(std::string file, char separator = ',') {
-	std::vector<std::vector<T>> result;
-	std::ifstream fin(file.c_str());
+    std::vector<std::vector<T>> result;
+    std::ifstream fin(file.c_str());
 
-	int row_length = -1;
+    int row_length = -1;
 
-	for (std::string line; getline(fin, line);) {
-		auto comment = line.find_first_of('#');
-		if (comment != line.npos) {
-			line = line.substr(0, comment);
-		}
+    for (std::string line; getline(fin, line);) {
+        auto comment = line.find_first_of('#');
+        if (comment != line.npos) {
+            line = line.substr(0, comment);
+        }
 
-		std::vector<T> row;
-		if (row_length > 0) {
-			row.reserve(row_length);
-		}
+        std::vector<T> row;
+        if (row_length > 0) {
+            row.reserve(row_length);
+        }
 
-		std::istringstream line_stream(line);
-		std::string cell;
+        std::istringstream line_stream(line);
+        std::string cell;
 
-		while (getline(line_stream, cell, separator)) {
-			row.push_back(atoi(cell.c_str()));
-		}
+        while (getline(line_stream, cell, separator)) {
+            row.push_back(atoi(cell.c_str()));
+        }
 
-		if (row.size() > 0) {
-			result.push_back(row);
-			row_length = row.size();
-		}
-	}
+        if (row.size() > 0) {
+            result.push_back(row);
+            row_length = row.size();
+        }
+    }
 
-	return result;
+    return result;
 }
 
 template <typename T = std::chrono::milliseconds, typename F>
 T benchmark(F f) {
-	auto t1 = std::chrono::steady_clock::now();
+    auto t1 = std::chrono::steady_clock::now();
 
-	f();
+    f();
 
-	auto t2 = std::chrono::steady_clock::now();
+    auto t2 = std::chrono::steady_clock::now();
 
-	return std::chrono::duration_cast<T>(t2 - t1);
+    return std::chrono::duration_cast<T>(t2 - t1);
 }
 
 #endif
