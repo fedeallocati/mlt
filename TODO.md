@@ -22,6 +22,7 @@ List of things to implement:
 - MeanSubstraction
 - Normalizer
 - Whithening (as an aditional parameter to PrincipalComponentAnalysis)
+- IndependentComponentAnalysis
 
 ### Trainers
 - LBFGSTrainer

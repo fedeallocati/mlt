@@ -1,5 +1,5 @@
-#ifndef SOFTMAX_REGRESSION_HPP
-#define SOFTMAX_REGRESSION_HPP
+#ifndef LINEAR_SVM_CLASSIFIER_HPP
+#define LINEAR_SVM_CLASSIFIER_HPP
 
 #include <Eigen/Core>
 #include <Eigen/SVD>
@@ -8,21 +8,21 @@ namespace mlt {
 namespace models {
 namespace classifiers {
     
-    // Implementation of Softmax Regression
+    // Implementation of a Linear Support Vector Machine Classifier
     // Categorization: 
     // - Application: Classifier
     // - Parametrization: Parametrized
     // - Method of Training: Derivative-Free, Gradient-Based
     // - Supervision: Supervised
-    class SoftmaxRegression {
+    class LinearSVMClassifier {
     public:         
-        SoftmaxRegression() : _init(false) {}
+		LinearSVMClassifier() : _init(false) {}
 
-        SoftmaxRegression(size_t input, size_t classes) : _init(true), _beta(Eigen::MatrixXd::Zero(input + 1, classes)) {}
+		LinearSVMClassifier(size_t input, size_t classes) : _init(true), _beta(Eigen::MatrixXd::Zero(input + 1, classes)) {}
 
         // Disable copy constructors
-        SoftmaxRegression(const SoftmaxRegression& other) = delete;
-        SoftmaxRegression& operator=(const SoftmaxRegression& other) = delete;
+		LinearSVMClassifier(const LinearSVMClassifier& other) = delete;
+		LinearSVMClassifier& operator=(const LinearSVMClassifier& other) = delete;
 
         inline size_t input() const {
             assert(_init);
@@ -38,7 +38,7 @@ namespace classifiers {
             return true;
         }
 
-		inline bool is_initialized() const {
+        inline bool is_initialized() const {
             return _init;
         }
 
@@ -54,12 +54,12 @@ namespace classifiers {
 
         inline Eigen::VectorXd score_single(const Eigen::VectorXd& input) const {
             assert(_init);
-            return _softmax(_beta, input.transpose()).transpose();
+            return _beta.transpose() * input;
         }
 
         inline Eigen::MatrixXd score_multi(const Eigen::MatrixXd& input) const {
             assert(_init);
-            return _softmax(_beta, input);
+            return input * _beta;
         }
 
         inline size_t params_size() const {
@@ -100,30 +100,28 @@ namespace classifiers {
         }
 
     protected:
-        inline double _cost_internal(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {                      
-			double loss = -_softmax(beta, input).cwiseProduct(result).colwise().sum().array().log().sum() / input.rows();
+        inline double _cost_internal(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {			
+			Eigen::MatrixXd scores =  input * beta;
+			double loss = ((scores.colwise() - scores.cwiseProduct(result).rowwise().sum()).array() + 1 - result.array()).max(0).sum() / input.rows();
             //regularization loss += 0.5 * this->_lambda * (theta.array().pow(2)).sum();
             return loss;
         }
 
         inline std::tuple<double, Eigen::MatrixXd> _cost_and_gradient_internal(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {
-            Eigen::MatrixXd scores = _softmax(beta, input);
+            //Eigen::MatrixXd scores = _softmax(beta, input); // 2000x10
+			Eigen::MatrixXd scores = input * beta; // 2000x10
             double loss = -scores.cwiseProduct(result).colwise().sum().array().log().sum() / input.rows();
             //regularization loss += 0.5 * this->_lambda * (theta.array().pow(2)).sum();
 
-            Eigen::MatrixXd d_beta = ((scores.transpose() * input) - (result.transpose() * input)).transpose() / input.rows();
+			// Implementation
+			// MatrixXd marginMask = (((scores.rowwise() - (scores.array() * y.array()).colwise().sum().matrix()).array() + 1 - y.array()).max(0) > 0).cast<double>();
+			// marginMask = marginMask.array() + (y.array().rowwise() * -marginMask.colwise().sum().array());
+			// MatrixXd d_theta = marginMask * x;
+
+            Eigen::MatrixXd d_beta = ((scores.transpose() * input) - (result.transpose() * input)).transpose() / input.rows(); // 10x50
             //regularization d_beta += this->_lambda * theta;
 
             return std::make_tuple(loss, d_beta);
-        }
-
-        inline Eigen::MatrixXd _softmax(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input) const {
-            Eigen::MatrixXd result = input * _beta;
-            result.colwise() -= result.rowwise().maxCoeff();
-            result = result.array().exp();
-            result = result.array().colwise() / result.rowwise().sum().array();
-
-            return result;
         }
 
         bool _init;
