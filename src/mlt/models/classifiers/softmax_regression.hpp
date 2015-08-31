@@ -110,10 +110,8 @@ namespace classifiers {
             Eigen::MatrixXd scores = _softmax(beta, input);
             double loss = -scores.cwiseProduct(result).colwise().sum().array().log().sum() / input.rows();
             //regularization loss += 0.5 * this->_lambda * (theta.array().pow(2)).sum();
-
             Eigen::MatrixXd d_beta = ((scores.transpose() * input) - (result.transpose() * input)).transpose() / input.rows();
             //regularization d_beta += this->_lambda * theta;
-
             return std::make_tuple(loss, d_beta);
         }
 

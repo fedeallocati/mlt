@@ -9,8 +9,6 @@
 #include "misc.hpp"
 #include "../mlt/models/regressors/least_squares_linear_regression.hpp"
 #include "../mlt/trainers/gradient_based/gradient_descent.hpp"
-#include "../mlt/models/classifiers/softmax_regression.hpp"
-#include "../mlt/models/classifiers/linear_svm_classifier.hpp"
 
 using namespace std;
 using namespace Eigen;

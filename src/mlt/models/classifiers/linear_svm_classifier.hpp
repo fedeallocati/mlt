@@ -102,25 +102,20 @@ namespace classifiers {
     protected:
         inline double _cost_internal(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {			
 			Eigen::MatrixXd scores =  input * beta;
-			double loss = ((scores.colwise() - scores.cwiseProduct(result).rowwise().sum()).array() + 1 - result.array()).max(0).sum() / input.rows();
+			double loss = (((scores.colwise() - scores.cwiseProduct(result).rowwise().sum()) - result).array() + 1).max(0).sum() / input.rows();
             //regularization loss += 0.5 * this->_lambda * (theta.array().pow(2)).sum();
             return loss;
         }
 
         inline std::tuple<double, Eigen::MatrixXd> _cost_and_gradient_internal(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {
-            //Eigen::MatrixXd scores = _softmax(beta, input); // 2000x10
-			Eigen::MatrixXd scores = input * beta; // 2000x10
-            double loss = -scores.cwiseProduct(result).colwise().sum().array().log().sum() / input.rows();
-            //regularization loss += 0.5 * this->_lambda * (theta.array().pow(2)).sum();
-
-			// Implementation
-			// MatrixXd marginMask = (((scores.rowwise() - (scores.array() * y.array()).colwise().sum().matrix()).array() + 1 - y.array()).max(0) > 0).cast<double>();
-			// marginMask = marginMask.array() + (y.array().rowwise() * -marginMask.colwise().sum().array());
-			// MatrixXd d_theta = marginMask * x;
-
-            Eigen::MatrixXd d_beta = ((scores.transpose() * input) - (result.transpose() * input)).transpose() / input.rows(); // 10x50
-            //regularization d_beta += this->_lambda * theta;
-
+            Eigen::MatrixXd scores = input * beta; // 4x5 * 5*3 = 4*3
+			Eigen::MatrixXd hinge_loss = (((scores.colwise() - scores.cwiseProduct(result).rowwise().sum()) - result).array() + 1).max(0); // 4x3
+			double loss = hinge_loss.sum() / input.rows();
+			//regularization loss += 0.5 * this->_lambda * (theta.array().pow(2)).sum();
+			Eigen::MatrixXd margin_mask = (hinge_loss.array() > 0).cast<double>(); // 4x3
+			margin_mask = margin_mask + (result.array().colwise() * -margin_mask.rowwise().sum().array()).matrix(); // 4x3
+			Eigen::MatrixXd d_beta = input.transpose() * margin_mask / input.rows(); // 4x3 * 4x5			
+            //regularization d_beta += this->_lambda * theta;			
             return std::make_tuple(loss, d_beta);
         }
 
