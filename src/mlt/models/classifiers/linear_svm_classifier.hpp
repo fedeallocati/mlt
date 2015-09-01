@@ -14,6 +14,9 @@ namespace classifiers {
     // - Parametrization: Parametrized
     // - Method of Training: Derivative-Free, Gradient-Based
     // - Supervision: Supervised
+	// Parameters:
+	// - double regularization: amount of L2 regularization to apply. Set to 0 or less if don't want to use.	
+	template <typename Params>
     class LinearSVMClassifier {
     public:         
 		LinearSVMClassifier() : _init(false) {}
@@ -103,7 +106,9 @@ namespace classifiers {
         inline double _cost_internal(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {			
 			Eigen::MatrixXd scores =  input * beta;
 			double loss = (((scores.colwise() - scores.cwiseProduct(result).rowwise().sum()) - result).array() + 1).max(0).sum() / input.rows();
-            //regularization loss += 0.5 * this->_lambda * (theta.array().pow(2)).sum();
+			if (params_t::regularization > 0) {
+				loss += params_t::regularization * (beta.array().pow(2)).sum();
+			}
             return loss;
         }
 
@@ -111,11 +116,15 @@ namespace classifiers {
             Eigen::MatrixXd scores = input * beta; // 4x5 * 5*3 = 4*3
 			Eigen::MatrixXd hinge_loss = (((scores.colwise() - scores.cwiseProduct(result).rowwise().sum()) - result).array() + 1).max(0); // 4x3
 			double loss = hinge_loss.sum() / input.rows();
-			//regularization loss += 0.5 * this->_lambda * (theta.array().pow(2)).sum();
+			if (params_t::regularization > 0) {
+				loss += params_t::regularization * (beta.array().pow(2)).sum();
+			}
 			Eigen::MatrixXd margin_mask = (hinge_loss.array() > 0).cast<double>(); // 4x3
 			margin_mask = margin_mask + (result.array().colwise() * -margin_mask.rowwise().sum().array()).matrix(); // 4x3
 			Eigen::MatrixXd d_beta = input.transpose() * margin_mask / input.rows(); // 4x3 * 4x5			
-            //regularization d_beta += this->_lambda * theta;			
+			if (params_t::regularization > 0) {
+				loss += params_t::regularization * 2 * beta;
+			}
             return std::make_tuple(loss, d_beta);
         }
 

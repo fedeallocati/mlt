@@ -29,7 +29,7 @@ struct Params {
 
 void lr_example(tuple<MatrixXd, MatrixXd> data, VectorXd test) {
     MatrixXd input, target;
-
+	
     std::tie(input, target) = data;
 
     cout << "First 10 examples from the dataset: " << endl;

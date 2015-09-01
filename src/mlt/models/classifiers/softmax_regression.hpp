@@ -14,6 +14,9 @@ namespace classifiers {
     // - Parametrization: Parametrized
     // - Method of Training: Derivative-Free, Gradient-Based
     // - Supervision: Supervised
+	// Parameters:
+	// - double regularization: amount of L2 regularization to apply. Set to 0 or less if don't want to use.	
+	template <typename Params>
     class SoftmaxRegression {
     public:         
         SoftmaxRegression() : _init(false) {}
@@ -100,18 +103,26 @@ namespace classifiers {
         }
 
     protected:
+		typedef Params::SoftmaxRegression params_t;
+
         inline double _cost_internal(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {                      
 			double loss = -_softmax(beta, input).cwiseProduct(result).colwise().sum().array().log().sum() / input.rows();
-            //regularization loss += 0.5 * this->_lambda * (theta.array().pow(2)).sum();
+			if (params_t::regularization > 0) {				
+				loss += params_t::regularization * (beta.array().pow(2)).sum();
+			}
             return loss;
         }
 
         inline std::tuple<double, Eigen::MatrixXd> _cost_and_gradient_internal(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {
             Eigen::MatrixXd scores = _softmax(beta, input);
             double loss = -scores.cwiseProduct(result).colwise().sum().array().log().sum() / input.rows();
-            //regularization loss += 0.5 * this->_lambda * (theta.array().pow(2)).sum();
+			if (params_t::regularization > 0) {
+				loss += params_t::regularization * (beta.array().pow(2)).sum();
+			}
             Eigen::MatrixXd d_beta = ((scores.transpose() * input) - (result.transpose() * input)).transpose() / input.rows();
-            //regularization d_beta += this->_lambda * theta;
+			if (params_t::regularization > 0) {
+				loss += params_t::regularization * 2 * beta;
+			}
             return std::make_tuple(loss, d_beta);
         }
 
