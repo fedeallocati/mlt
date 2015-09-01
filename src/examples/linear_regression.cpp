@@ -25,6 +25,10 @@ struct Params {
         static constexpr gradient_descent_update_t update_method = gradient_descent_update_t::gradient_descent;
         static constexpr double update_param = 0;
     };
+
+	struct LeastSquaresLinearRegression {
+		static constexpr double regularization = 0;
+	};
 };
 
 void lr_example(tuple<MatrixXd, MatrixXd> data, VectorXd test) {
@@ -57,10 +61,10 @@ void lr_example(tuple<MatrixXd, MatrixXd> data, VectorXd test) {
     RowVectorXd sigma = cov.diagonal().transpose().cwiseSqrt();
     input.array().rightCols(input.cols() - 1).rowwise() /= sigma.array();
         
-    LeastSquaresLinearRegression lr1(input.cols() - 1, target.cols());
-    LeastSquaresLinearRegression lr2;
+    LeastSquaresLinearRegression<Params> lr1(input.cols() - 1, target.cols());
+    LeastSquaresLinearRegression<Params> lr2;
 
-    GradientDescentTrainer<Params, LeastSquaresLinearRegression> gdt(lr1);
+    GradientDescentTrainer<Params, decltype(lr1)> gdt(lr1);
 
     cout << "Training with Gradient Descent..." << endl;
     auto time1 = benchmark([&]() { gdt.train(input, target); }).count();

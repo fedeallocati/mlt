@@ -123,7 +123,7 @@ namespace classifiers {
 			margin_mask = margin_mask + (result.array().colwise() * -margin_mask.rowwise().sum().array()).matrix(); // 4x3
 			Eigen::MatrixXd d_beta = input.transpose() * margin_mask / input.rows(); // 4x3 * 4x5			
 			if (params_t::regularization > 0) {
-				loss += params_t::regularization * 2 * beta;
+				d_beta += params_t::regularization * 2 * beta;
 			}
             return std::make_tuple(loss, d_beta);
         }

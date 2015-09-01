@@ -121,7 +121,7 @@ namespace classifiers {
 			}
             Eigen::MatrixXd d_beta = ((scores.transpose() * input) - (result.transpose() * input)).transpose() / input.rows();
 			if (params_t::regularization > 0) {
-				loss += params_t::regularization * 2 * beta;
+				d_beta += params_t::regularization * 2 * beta;
 			}
             return std::make_tuple(loss, d_beta);
         }
