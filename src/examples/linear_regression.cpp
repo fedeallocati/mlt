@@ -18,16 +18,16 @@ using namespace mlt::trainers::gradient_based;
 
 struct Params {
     struct GradientDescent {
-        static constexpr int epochs = 800;
-        static constexpr int batch_size = 0;
-        static constexpr double learning_rate = 0.001;
-        static constexpr double learning_rate_decay = 1;
-        static constexpr gradient_descent_update_t update_method = gradient_descent_update_t::gradient_descent;
-        static constexpr double update_param = 0;
+		static constexpr int epochs() { return 800; }
+		static constexpr int batch_size() { return 0; }
+		static constexpr double learning_rate() { return 0.001; }
+		static constexpr double learning_rate_decay() { return 1; }
+		static constexpr gradient_descent_update_t update_method() { return gradient_descent_update_t::gradient_descent; }
+		static constexpr double update_param() { return 0; }
     };
 
 	struct LeastSquaresLinearRegression {
-		static constexpr double regularization = 0;
+		static constexpr double regularization() { return 0; }
 	};
 };
 

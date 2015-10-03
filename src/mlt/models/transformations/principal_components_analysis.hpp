@@ -90,7 +90,7 @@ namespace transformations {
         void self_train(const Eigen::MatrixXd& input, bool reset = false) {
             MatrixXd final = input;
             
-            if (params_t::normalize_mean) {
+            if (params_t::normalize_mean()) {
                 _mean = input.colwise().mean();
                 final.rowwise() -= _mean.transpose();
                 _normalized_mean = true;
@@ -98,7 +98,7 @@ namespace transformations {
                 _mean = Eigen::VectorXd::Zero(input.cols());
             }
 
-            if (params_t::normalize_variance) {
+            if (params_t::normalize_variance()) {
                 _std = (input.transpose() * input).diagonal().cwiseSqrt();              
                 final.array().rowwise() /= _std.transpose().array();
                 _normalized_variance = true;
@@ -107,10 +107,10 @@ namespace transformations {
             }
 
             Eigen::JacobiSVD<Eigen::MatrixXd> svd = ((input.transpose() * input) / input.rows()).jacobiSvd(Eigen::ComputeThinU);
-            auto k = params_t::new_dimension;
+            auto k = params_t::new_dimension();
             if (k < 1) {
                 k = input.cols();
-                if (params_t::variance_to_retain > 0 && params_t::variance_to_retain <= 1) {
+                if (params_t::variance_to_retain() > 0 && params_t::variance_to_retain() <= 1) {
                     double sum = svd.singularValues().sum();
                     double acum = 0;
 

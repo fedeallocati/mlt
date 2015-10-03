@@ -107,8 +107,8 @@ namespace classifiers {
 
         inline double _cost_internal(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {                      
 			double loss = -_softmax(beta, input).cwiseProduct(result).colwise().sum().array().log().sum() / input.rows();
-			if (params_t::regularization > 0) {				
-				loss += params_t::regularization * (beta.array().pow(2)).sum();
+			if (params_t::regularization() > 0) {				
+				loss += params_t::regularization() * (beta.array().pow(2)).sum();
 			}
             return loss;
         }
@@ -116,12 +116,12 @@ namespace classifiers {
         inline std::tuple<double, Eigen::MatrixXd> _cost_and_gradient_internal(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {
             Eigen::MatrixXd scores = _softmax(beta, input);
             double loss = -scores.cwiseProduct(result).colwise().sum().array().log().sum() / input.rows();
-			if (params_t::regularization > 0) {
-				loss += params_t::regularization * (beta.array().pow(2)).sum();
+			if (params_t::regularization() > 0) {
+				loss += params_t::regularization() * (beta.array().pow(2)).sum();
 			}
             Eigen::MatrixXd d_beta = ((scores.transpose() * input) - (result.transpose() * input)).transpose() / input.rows();
-			if (params_t::regularization > 0) {
-				d_beta += params_t::regularization * 2 * beta;
+			if (params_t::regularization() > 0) {
+				d_beta += params_t::regularization() * 2 * beta;
 			}
             return std::make_tuple(loss, d_beta);
         }

@@ -107,8 +107,8 @@ namespace regressors {
             // Moore-Penrose pseudoinverse
             double epsilon = 1e-9;
 			Eigen::MatrixXd matrix_to_inverse = input.transpose() * input;
-			if (params_t::regularization > 0) {
-				matrix_to_inverse += Eigen::MatrixXd::Identity(matrix_to_inverse.rows(), matrix_to_inverse.cols()) * params_t::regularization;
+			if (params_t::regularization() > 0) {
+				matrix_to_inverse += Eigen::MatrixXd::Identity(matrix_to_inverse.rows(), matrix_to_inverse.cols()) * params_t::regularization();
 			}			
             Eigen::JacobiSVD<Eigen::MatrixXd> svd(matrix_to_inverse, Eigen::ComputeThinU | Eigen::ComputeThinV);
             const auto singVals = svd.singularValues();
@@ -132,8 +132,8 @@ namespace regressors {
 
         inline double _cost_internal(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {          
 			double loss = ((input * beta) - result).array().pow(2).sum() / (2 * input.rows());
-			if (params_t::regularization > 0) {
-				loss += params_t::regularization * (beta.array().pow(2)).sum();
+			if (params_t::regularization() > 0) {
+				loss += params_t::regularization() * (beta.array().pow(2)).sum();
 			}
             return loss;
         }
@@ -141,12 +141,12 @@ namespace regressors {
         inline std::tuple<double, Eigen::MatrixXd> _cost_and_gradient_internal(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {
             Eigen::MatrixXd diff = input * beta - result;
             double loss = diff.array().pow(2).sum() / (2 * input.rows());
-			if (params_t::regularization > 0) {
-				loss += params_t::regularization * (beta.array().pow(2)).sum();
+			if (params_t::regularization() > 0) {
+				loss += params_t::regularization() * (beta.array().pow(2)).sum();
 			}
             Eigen::MatrixXd d_beta = (input.transpose() * diff) / input.rows();
-			if (params_t::regularization > 0) {
-				d_beta += params_t::regularization * 2 * beta;
+			if (params_t::regularization() > 0) {
+				d_beta += params_t::regularization() * 2 * beta;
 			}
             return std::make_tuple(loss, d_beta);
         }

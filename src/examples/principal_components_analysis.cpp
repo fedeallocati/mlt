@@ -16,10 +16,10 @@ using namespace mlt::models::transformations;
 
 struct Params {
     struct PrincipalComponentsAnalysis {
-        static constexpr bool normalize_mean = true;
-        static constexpr bool normalize_variance = true;        
-        static constexpr int new_dimension = 2;
-        static constexpr double variance_to_retain = 0;     
+        static constexpr bool normalize_mean() { return true; }
+        static constexpr bool normalize_variance() { return true; }
+        static constexpr int new_dimension() { return 2; }
+        static constexpr double variance_to_retain() { return 0; }
     };
 };
 
