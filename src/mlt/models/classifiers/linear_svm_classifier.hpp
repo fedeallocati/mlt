@@ -109,23 +109,23 @@ namespace classifiers {
 			Eigen::MatrixXd scores =  input * beta;
 			double loss = (((scores.colwise() - scores.cwiseProduct(result).rowwise().sum()) - result).array() + 1).max(0).sum() / input.rows();
 			if (params_t::regularization() > 0) {
-				loss += params_t::regularization() * (beta.array().pow(2)).sum();
+				loss += params_t::regularization() * (beta.rightCols(beta.cols() -1).array().pow(2)).sum();
 			}
             return loss;
         }
 
         inline std::tuple<double, Eigen::MatrixXd> _cost_and_gradient_internal(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {
-            Eigen::MatrixXd scores = input * beta; // 4x5 * 5*3 = 4*3
+            Eigen::MatrixXd scores = input * beta;
 			Eigen::MatrixXd hinge_loss = (((scores.colwise() - scores.cwiseProduct(result).rowwise().sum()) - result).array() + 1).max(0); // 4x3
 			double loss = hinge_loss.sum() / input.rows();
 			if (params_t::regularization() > 0) {
-				loss += params_t::regularization() * (beta.array().pow(2)).sum();
+				loss += params_t::regularization() * (betarightCols(beta.cols() - 1).array().pow(2)).sum();
 			}
-			Eigen::MatrixXd margin_mask = (hinge_loss.array() > 0).cast<double>(); // 4x3
-			margin_mask = margin_mask + (result.array().colwise() * -margin_mask.rowwise().sum().array()).matrix(); // 4x3
-			Eigen::MatrixXd d_beta = input.transpose() * margin_mask / input.rows(); // 4x3 * 4x5			
+			Eigen::MatrixXd margin_mask = (hinge_loss.array() > 0).cast<double>();
+			margin_mask = margin_mask + (result.array().colwise() * -margin_mask.rowwise().sum().array()).matrix();
+			Eigen::MatrixXd d_beta = input.transpose() * margin_mask / input.rows();
 			if (params_t::regularization() > 0) {
-				d_beta += params_t::regularization() * 2 * beta;
+				d_beta.rightCols(d_beta.cols() - 1) += params_t::regularization() * 2 * beta.rightCols(beta.cols() - 1);
 			}
             return std::make_tuple(loss, d_beta);
         }

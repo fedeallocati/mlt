@@ -3,14 +3,14 @@ List of things to implement:
 ### Models
 #### Regressors:
 - LocallyWeightedLinearRegression
-- RidgeRegression
 - LassoRegression
+- RidgeRegression
+- KNearestNeighboursRegression
 
 #### Classifiers:
 - LogisticRegression
-- LinearSVM
 - MultilayerPerceptron
-- KNearestNeighbours
+- KNearestNeighboursClassifier
 - GaussianDiscriminantAnalysis
 - FisherLinearDiscriminant
 

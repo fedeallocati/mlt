@@ -41,12 +41,12 @@ namespace classifiers {
 
         inline size_t input() const {
             assert(_init);
-            return _beta.rows() - 1;
+            return this->_theta[0].rows() - 1;
         }
 
         inline size_t output() const {
             assert(_init);
-            return _beta.cols();
+            return this->_theta.back().cols();
         }
 
         inline bool add_intercept() const {
@@ -239,26 +239,24 @@ namespace classifiers {
 			for (unsigned int i = 0; i < theta.size(); i++) {
 				reg += theta[i].rightCols(theta[i].cols() - 1).array().pow(2).sum();
 			}
-			// TODO add regularization
-			//reg *= (params_t::regularization() / (double)(2 * x.rows()));
-			//loss += reg;
+
+			reg *= (params_t::regularization() / (double)(2 * x.rows()));
+			loss += reg;
 
 			std::vector<Eigen::MatrixXd> d_theta;
 
-			MatrixXd previous_delta = a.back() - y;
+			Eigen::MatrixXd previous_delta = a.back() - y;
 			d_theta.push_back(previous_delta * a[a.size() - 2].transpose() / (double)y.cols());
-
-			reg2_grad = (lambda / m).*Theta2;
-			reg1_grad = (lambda / m).*Theta1;
-
+			d_theta.back().rightCols(d_theta.back().cols() - 1) += (params_t::regularization() / (double)(x.rows())) * theta.back().rightCols(theta.back().cols() - 1);
 
 			for (size_t i = theta.size() - 1; i > 0; i--) {
-				MatrixXd temp = (theta[i].rightCols(theta[i].cols() - 1).transpose() * previous_delta).array() *
+				Eigen::MatrixXd temp = (theta[i].rightCols(theta[i].cols() - 1).transpose() * previous_delta).array() *
 					z[i - 1].unaryExpr(std::ptr_fun(sigmoidGradient)).array();
 				d_theta.push_back(temp * a[i - 1].transpose() / (double)y.cols());
+				d_theta.back().rightCols(d_theta.back().cols() - 1) += (params_t::regularization() / (double)(x.rows())) * theta[i].rightCols(theta[i].cols() - 1);
 				previous_delta = temp;
 			}
-			// TODO add regularization
+			
 			std::reverse(d_theta.begin(), d_theta.end());
 
 			return std::make_tuple(loss, d_theta);
