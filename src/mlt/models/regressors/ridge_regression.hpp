@@ -8,17 +8,19 @@ namespace mlt {
 namespace models {
 namespace regressors {
     
-    // Implementation of Least Squares Linear Regression
+    // Implementation of Ridge Regression
     // Categorization: 
     // - Application: Regressor
     // - Parametrization: Parametrized
     // - Method of Training: Self-Trainable, Derivative-Free, Gradient-Based   
     // - Supervision: Supervised
-    class LeastSquaresLinearRegression {
+	// Parameters:
+    // - double regularization: amount of L2 regularization to apply.
+    class RidgRegression {
     public:         
-        LeastSquaresLinearRegression() : _init(false) {}
+        RidgRegression() : _init(false) {}
 
-        LeastSquaresLinearRegression(size_t input, size_t output) : _init(true), _beta(Eigen::MatrixXd::Zero(input + 1, output)) {}
+        RidgRegression(size_t input, size_t output) : _init(true), _beta(Eigen::MatrixXd::Zero(input + 1, output)) {}
 
         inline size_t input() const {
             assert(_init);
@@ -100,6 +102,9 @@ namespace regressors {
             // Moore-Penrose pseudoinverse
             double epsilon = 1e-9;
 			Eigen::MatrixXd matrix_to_inverse = input.transpose() * input;
+			if (params_t::regularization() > 0) {
+				matrix_to_inverse += Eigen::MatrixXd::Identity(matrix_to_inverse.rows(), matrix_to_inverse.cols()) * params_t::regularization();
+			}			
             Eigen::JacobiSVD<Eigen::MatrixXd> svd(matrix_to_inverse, Eigen::ComputeThinU | Eigen::ComputeThinV);
             const auto singVals = svd.singularValues();
             auto invSingVals = singVals;
@@ -118,14 +123,26 @@ namespace regressors {
         }   
 
     protected:
-        inline double _cost_internal(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {
-			return ((input * beta) - result).array().pow(2).sum() / (2 * input.rows());
+		typedef Params::LeastSquaresLinearRegression params_t;
+
+        inline double _cost_internal(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {          
+			double loss = ((input * beta) - result).array().pow(2).sum() / (2 * input.rows());
+			if (params_t::regularization() > 0) {
+				loss += params_t::regularization() * (beta.array().pow(2)).sum();
+			}
+            return loss;
         }
 
         inline std::tuple<double, Eigen::MatrixXd> _cost_and_gradient_internal(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {
             Eigen::MatrixXd diff = input * beta - result;
             double loss = diff.array().pow(2).sum() / (2 * input.rows());
+			if (params_t::regularization() > 0) {
+				loss += params_t::regularization() * (beta.array().pow(2)).sum();
+			}
             Eigen::MatrixXd d_beta = (input.transpose() * diff) / input.rows();
+			if (params_t::regularization() > 0) {
+				d_beta += params_t::regularization() * 2 * beta;
+			}
             return std::make_tuple(loss, d_beta);
         }
 
