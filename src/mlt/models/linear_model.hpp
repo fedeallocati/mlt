@@ -12,33 +12,27 @@ namespace models {
 	public:
 		bool fit_intercept() const { return _fit_intercept; }
 
-		Eigen::MatrixXd coefficients() const { return _coefficients; }
+		Eigen::MatrixXd coefficients() const { assert(_fitted); return _coefficients; }
 
-		Eigen::VectorXd intercepts() const { return _intercepts.transpose(); }
+		Eigen::VectorXd intercepts() const { assert(_fitted && _fit_intercept); return _intercepts.transpose(); }
 
 		Eigen::MatrixXd predict(const Eigen::MatrixXd& input) const {
 			assert(_fitted);
 
 			Eigen::MatrixXd res;
 
-			if (input.cols() == 1 && input.rows() == _coefficients.rows()) {
-				// input = 5 * 1
-				// coefficients = 5 * 3
-				// intercepts = 3
-				// res = 3 * 1;
+			if (input.cols() == 1 && input.rows() == _input_size) {
 				res = _coefficients.transpose() * input;
 
-				if (fit_intercept)
+				if (fit_intercept) {
 					res += _intercepts;
+				}
 			}
 			else {
-				// input = 10 * 5
-				// coefficients = 5 * 3
-				// intercepts = 3
-				// res = 10 * 3
 				res = input * _coefficients;
-				if (fit_intercept)
+				if (fit_intercept) {
 					res = res.rowwise() + _intercepts;
+				}
 			}
 			
 			return res;
