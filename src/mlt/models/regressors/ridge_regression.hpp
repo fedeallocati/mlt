@@ -22,8 +22,11 @@ namespace regressors {
 				input_prime.rightCols<1>() = Eigen::VectorXd::Ones(input.rows());
 			}
 
+			Eigen::MatrixXd reg = Eigen::MatrixXd::Identity(input_prime.cols(), input_prime.cols()) * _regularization;
+			reg(reg.rows() -1, reg.cols() - 1) = 0;
+
 			Eigen::MatrixXd coeffs = utils::linalg::pseudo_inverse(
-				(input_prime.transpose() * input_prime)  + Eigen::MatrixXd::Identity(input_prime.cols(), input_prime.cols()) * _regularization)
+				(input_prime.transpose() * input_prime) + reg)
 				* input_prime.transpose() * target;
 
 			if (_fit_intercept) {
