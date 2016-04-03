@@ -9,10 +9,12 @@ namespace utils {
 namespace linalg {
 	// Moore-Penrose pseudoinverse
 	template <typename Derived>
-	inline Eigen::MatrixXd pseudo_inverse(const Eigen::EigenBase<Derived>& x) {
-		Eigen::JacobiSVD<Eigen::MatrixXd> svd(x, Eigen::ComputeThinU | Eigen::ComputeThinV);
+	Eigen::Matrix<typename Derived::Scalar, Derived::RowsAtCompileTime, Derived::ColsAtCompileTime>
+	pseudo_inverse(const Eigen::MatrixBase<Derived>& x) {
+		Eigen::JacobiSVD<Eigen::Matrix<typename Derived::Scalar, Derived::RowsAtCompileTime, Derived::ColsAtCompileTime>> 
+			svd(x, Eigen::ComputeThinU | Eigen::ComputeThinV);
 
-		auto tolerance = std::numeric_limits<double>::epsilon() * std::max(x.rows(), x.cols()) * svd.singularValues().maxCoeff();
+		auto tolerance = std::numeric_limits<typename Derived::Scalar>::epsilon() * std::max(x.rows(), x.cols()) * svd.singularValues().maxCoeff();
 		
 		return svd.matrixV() * svd.singularValues().unaryExpr([=](double s) { return (s < tolerance) ? 0 : 1 / s; }).asDiagonal() * svd.matrixU().transpose();
 	}
