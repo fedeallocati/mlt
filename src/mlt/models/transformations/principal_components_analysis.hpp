@@ -29,16 +29,16 @@ namespace transformations {
 
 		PrincipalComponentsAnalysis& fit(const Eigen::MatrixXd& input) {
 			assert(_components_size == -1 || _components_size <= input.cols());
-			_mean = input.colwise().mean();
-			Eigen::MatrixXd final =  input.rowwise() - _mean.transpose();
+			_mean = input.rowwise().mean();
+			Eigen::MatrixXd final =  input.colwise() - _mean;
 
-			auto svd = ((final.transpose() * final) / input.rows()).jacobiSvd(Eigen::ComputeThinU);
+			auto svd = ((final * final.transpose()) / input.cols()).jacobiSvd(Eigen::ComputeThinU);
 
 			_explained_variance = svd.singularValues();
 			_explained_variance_ratio = _explained_variance / _explained_variance.sum();
 
 			if (_components_size < 1 && _variance_to_retain < 0) {
-				_components_size = input.cols();
+				_components_size = input.rows();
 			} else if (_components_size < 1 && _variance_to_retain > 0) {
 				double acum = 0;
 				size_t i = 0;
@@ -50,7 +50,7 @@ namespace transformations {
 			}
 
 			if (_components_size > svd.matrixU().cols()) {
-				_components_size = _components.cols();				
+				_components_size = _components.cols();
 			}
 
 			if (_components_size < std::min(input.rows(), input.cols())) {
@@ -74,37 +74,22 @@ namespace transformations {
 		Eigen::MatrixXd transform(const Eigen::MatrixXd& input) const {
 			assert(_fitted);
 
-			if (input.cols() == 1 && input.rows() == _input_size) {
-				if (_whiten) {
-					return (_components.transpose() * (input - _mean)).cwiseQuotient(_explained_variance.cwiseSqrt());
-				}
-
-				return _components.transpose() * (input - _mean);
-			}
-
 			if (_whiten) {
-				return ((input.rowwise() - _mean.transpose()) * _components).array().rowwise() / _explained_variance.cwiseSqrt().transpose().array();
+				auto transformed = (_components.transpose() * (input.colwise() - _mean));
+				return transformed.array().colwise() * _explained_variance.cwiseSqrt().cwiseInverse().array();
 			}
 
-			return (input.rowwise() - _mean.transpose()) * _components;
+			return _components.transpose() * (input.colwise() - _mean);
 		}
 
 		Eigen::MatrixXd inverse_transform(const Eigen::MatrixXd& input) const {
 			assert(_fitted);
 
-			if (input.cols() == 1 && input.rows() == _input_size) {
-				if (_whiten) {
-					return ((_components.array().rowwise() * _explained_variance.cwiseSqrt().transpose().array()).matrix() * input) + _mean;
-				}
-
-				return (_components * input) + _mean;
-			}
-
 			if (_whiten) {
-				return  (input * (_components.transpose().array().colwise() * _explained_variance.cwiseSqrt().array()).matrix()).rowwise() + _mean.transpose();
+				return (_components * (input.array().colwise() *_explained_variance.cwiseSqrt().array()).matrix()).colwise() + _mean;
 			}
 
-			return (input * _components.transpose()).rowwise() + _mean.transpose();
+			return (_components * input).colwise() + _mean;
 		}
 
 	protected:
