@@ -1,5 +1,5 @@
 #ifndef MLT_MODELS_TRANSFORMATIONS_PRINCIPAL_COMPONENTS_ANALYSIS_HPP
-#define MLT_MODELS_TRANSFORMANTIONS_PRINCIPAL_COMPONENTS_ANALYSIS_HPP
+#define MLT_MODELS_TRANSFORMATIONS_PRINCIPAL_COMPONENTS_ANALYSIS_HPP
 
 #include <Eigen/Core>
 #include <Eigen/SVD>
@@ -11,13 +11,13 @@ namespace models {
 namespace transformations {
 	class PrincipalComponentsAnalysis : public BaseModel {
 	public:
-		explicit PrincipalComponentsAnalysis(int components_size, bool normalize_mean = false, bool normalize_variance = false) : 
-			_components_size(components_size), _normalize_mean(normalize_mean), _normalize_variance(normalize_variance) {}
+		explicit PrincipalComponentsAnalysis(int components_size, bool whiten = false) : _components_size(components_size), _whiten(whiten) {}
 		
-		explicit PrincipalComponentsAnalysis(double variance_to_retain, bool normalize_mean = false, bool normalize_variance = false) :
-			_variance_to_retain(variance_to_retain), _normalize_mean(normalize_mean), _normalize_variance(normalize_variance) {
+		explicit PrincipalComponentsAnalysis(double variance_to_retain, bool whiten = false) : _variance_to_retain(variance_to_retain), _whiten(whiten) {
 			assert(variance_to_retain > 0 && variance_to_retain <= 1);
 		}
+
+		explicit PrincipalComponentsAnalysis(bool whiten = false) : _whiten(whiten) {}
 
 		int components_size() const { assert(_fitted); return _components_size; }
 
@@ -25,43 +25,44 @@ namespace transformations {
 
 		Eigen::VectorXd explained_variance_ratio() const { assert(_fitted); return _explained_variance_ratio; }
 
+		double noise_variance() const { assert(fitted); return _noise_variance; }
+
 		PrincipalComponentsAnalysis& fit(const Eigen::MatrixXd& input) {
-			auto final = input;
+			assert(_components_size == -1 || _components_size <= input.cols());
+			_mean = input.colwise().mean();
+			Eigen::MatrixXd final =  input.rowwise() - _mean.transpose();
 
-			if (_normalize_mean) {
-				_mean = input.colwise().mean();
-				final.rowwise() -= _mean.transpose();
-			}
+			auto svd = ((final.transpose() * final) / input.rows()).jacobiSvd(Eigen::ComputeThinU);
 
-			if (_normalize_variance) {
-				_std = (input.transpose() * input).diagonal().cwiseSqrt();
-				final.array().rowwise() /= _std.transpose().array();
-			}
+			_explained_variance = svd.singularValues();
+			_explained_variance_ratio = _explained_variance / _explained_variance.sum();
 
-			auto svd = ((input.transpose() * input) / input.rows()).jacobiSvd(Eigen::ComputeThinU);
-
-			_explained_variance_ratio = svd.singularValues() / svd.singularValues().sum();
-
-			if (_components_size < 1 && _variance_to_retain > 0) {
+			if (_components_size < 1 && _variance_to_retain < 0) {
+				_components_size = input.cols();
+			} else if (_components_size < 1 && _variance_to_retain > 0) {
 				double acum = 0;
-
 				size_t i = 0;
 				while (i < _explained_variance_ratio.rows() && acum < _variance_to_retain) {
 					acum += _explained_variance_ratio(i);
 					i++;
 				}
-
 				_components_size = i + 1;
-			} 
+			}
 
-			if (_components_size < svd.matrixU().cols()) {
-				_components = svd.matrixU().leftCols(_components_size);
-				_explained_variance_ratio = _explained_variance_ratio.head(_components_size);
+			if (_components_size > svd.matrixU().cols()) {
+				_components_size = _components.cols();				
+			}
+
+			if (_components_size < std::min(input.rows(), input.cols())) {
+				_noise_variance = _explained_variance.tail(_explained_variance.size() - _components_size).mean();
 			}
 			else {
-				_components_size = _components.cols();
-				_components = svd.matrixU();
+				_noise_variance = 0;
 			}
+
+			_components = svd.matrixU().leftCols(_components_size);
+			_explained_variance = _explained_variance.head(_components_size);
+			_explained_variance_ratio = _explained_variance_ratio.head(_components_size);
 
 			_fitted = true;
 			_input_size = _components.rows();
@@ -73,43 +74,48 @@ namespace transformations {
 		Eigen::MatrixXd transform(const Eigen::MatrixXd& input) const {
 			assert(_fitted);
 
-			Eigen::MatrixXd res;
+			if (input.cols() == 1 && input.rows() == _input_size) {
+				if (_whiten) {
+					return (_components.transpose() * (input - _mean)).cwiseQuotient(_explained_variance.cwiseSqrt());
+				}
+
+				return _components.transpose() * (input - _mean);
+			}
+
+			if (_whiten) {
+				return ((input.rowwise() - _mean.transpose()) * _components).array().rowwise() / _explained_variance.cwiseSqrt().transpose().array();
+			}
+
+			return (input.rowwise() - _mean.transpose()) * _components;
+		}
+
+		Eigen::MatrixXd inverse_transform(const Eigen::MatrixXd& input) const {
+			assert(_fitted);
 
 			if (input.cols() == 1 && input.rows() == _input_size) {
-				Eigen::VectorXd final = input;
-				if (_normalize_mean) {
-					final -= _mean;
-				}
-				if (_normalize_variance) {
-					final.array() /= _std.transpose().array();
+				if (_whiten) {
+					return ((_components.array().rowwise() * _explained_variance.cwiseSqrt().transpose().array()).matrix() * input) + _mean;
 				}
 
-				res = _components.transpose() * final;
-			}
-			else {
-				Eigen::MatrixXd final = input;
-				if (_normalize_mean) {
-					final.rowwise() -= _mean.transpose();
-				}
-				if (_normalize_variance) {
-					final.array().rowwise() /= _std.transpose().array();
-				}
-
-				res = final * _components;
+				return (_components * input) + _mean;
 			}
 
-			return res;
+			if (_whiten) {
+				return  (input * (_components.transpose().array().colwise() * _explained_variance.cwiseSqrt().array()).matrix()).rowwise() + _mean.transpose();
+			}
+
+			return (input * _components.transpose()).rowwise() + _mean.transpose();
 		}
 
 	protected:
 		int _components_size = -1;
 		double _variance_to_retain = -1;
-		bool _normalize_mean = false;
-		bool _normalize_variance = false;
 		Eigen::VectorXd _mean;
-		Eigen::VectorXd _std;
 		Eigen::MatrixXd _components;
+		Eigen::VectorXd _explained_variance;
 		Eigen::VectorXd _explained_variance_ratio;
+		double _noise_variance = 0;
+		bool _whiten;
 	};
 }
 }
