@@ -1,3 +1,4 @@
+#ifdef tuvieja
 #define EIGEN_USE_MKL_ALL
 //#define MLT_VERBOSE_TRAINING
 
@@ -97,3 +98,4 @@ void lr_example(tuple<MatrixXd, MatrixXd> data, VectorXd test) {
     cout << "Prediction for test: " << endl << predictions << endl << endl;
     cin.get();
 }
+#endif

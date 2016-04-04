@@ -1,3 +1,4 @@
+#ifdef tuvieja
 #define EIGEN_USE_MKL_ALL
 //#define MLT_VERBOSE_TRAINING
 
@@ -39,3 +40,4 @@ void pca_example(MatrixXd input, VectorXd test) {
     cout << "Transformation for test: " << endl << pca.transform_single(test_norm) << endl << endl;
     cin.get();
 }
+#endif
