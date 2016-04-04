@@ -12,7 +12,7 @@ namespace models {
 	public:
 		bool fit_intercept() const { return _fit_intercept; }
 
-		Eigen::MatrixXd coefficients() const { assert(_fitted); return _coefficients; }
+		Eigen::MatrixXd coefficients() const { assert(_fitted); return _coefficients_transposed.transpose(); }
 
 		Eigen::VectorXd intercepts() const { assert(_fitted && _fit_intercept); return _intercepts.transpose(); }
 
@@ -21,21 +21,11 @@ namespace models {
 
 			Eigen::MatrixXd res;
 
-			if (input.cols() == 1 && input.rows() == _input_size) {
-				res = _coefficients.transpose() * input;
+			if (fit_intercept) {
+				return (_coefficients_transposed * input).colwise() + _intercepts;
+			}
 
-				if (fit_intercept) {
-					res += _intercepts;
-				}
-			}
-			else {
-				res = input * _coefficients;
-				if (fit_intercept) {
-					res = res.rowwise() + _intercepts;
-				}
-			}
-			
-			return res;
+			return _coefficients_transposed * input;
 		}
 
 	protected:
@@ -44,30 +34,29 @@ namespace models {
 		void _set_coefficients(const Eigen::MatrixXd& coefficients) {
 			assert(!_fit_intercept);
 
-			_coefficients = coefficients;
+			_coefficients_transposed = coefficients.transpose();
 
 			_fitted = true;
-			_input_size = coefficients.rows();
-			_output_size = coefficients.cols();
+			_input_size = coefficients.cols();
+			_output_size = coefficients.rows();
 		}
 
-		void _set_coefficients_and_intercepts(const Eigen::MatrixXd& coefficients, const Eigen::RowVectorXd& intercepts) {
-			assert(coefficients.cols() == intercepts.size());
+		void _set_coefficients_and_intercepts(const Eigen::MatrixXd& coefficients, const Eigen::VectorXd& intercepts) {
+			assert(coefficients.rows() == intercepts.rows());
 
-			_coefficients = coefficients;
+			_coefficients_transposed = coefficients.transpose();
 			_intercepts = intercepts;
 
 			_fitted = true;
-			_input_size = coefficients.rows();
-			_output_size = coefficients.cols();
+			_input_size = coefficients.cols();
+			_output_size = coefficients.rows();
 		}
 
 		const bool _fit_intercept = false;
 
 	private:
-		Eigen::MatrixXd _coefficients;
-		Eigen::RowVectorXd _intercepts;
-
+		Eigen::MatrixXd _coefficients_transposed;
+		Eigen::VectorXd _intercepts;
 	};
 }
 }

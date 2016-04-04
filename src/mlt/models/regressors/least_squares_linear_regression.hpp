@@ -11,21 +11,26 @@ namespace models {
 namespace regressors {
     class LeastSquaresLinearRegression : public LinearModel {
     public:         
-        explicit LeastSquaresLinearRegression(bool fit_intercept) : LinearModel(fit_intercept) {}
+        explicit LeastSquaresLinearRegression(bool fit_intercept = true) : LinearModel(fit_intercept) {}
 
         LeastSquaresLinearRegression& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXd& target) {
             // Closed-form solution of Least Squares Linear Regression: pinv(input' * input) * input' * target            
-			Eigen::MatrixXd input_prime(input.rows(), input.cols() + (_fit_intercept ? 1 : 0));
-			input_prime.leftCols(input.cols()) << input;
+			Eigen::MatrixXd input_prime(input.rows() + (_fit_intercept ? 1 : 0), input.cols());
+			input_prime.topRows(input.rows()) << input;
 
 			if (_fit_intercept) {
-				input_prime.rightCols<1>() = Eigen::VectorXd::Ones(input.rows());
+				input_prime.bottomRows<1>() = Eigen::VectorXd::Ones(input.cols());
 			}
 
-            Eigen::MatrixXd coeffs = utils::linalg::pseudo_inverse(input_prime.transpose() * input_prime) * input_prime.transpose() * target;
-
+			// target = 1 * 3
+			// input = 2 * 3
+			// inv = 2 * 2
+			// inv * input * target' = ((2 * 2) * (2 * 3)) * (3 * 1) = (2 * 3) * (3 * 1) = 2 * 1
+			Eigen::MatrixXd coeffs = (utils::linalg::pseudo_inverse(input_prime * input_prime.transpose())
+				* input_prime * target.transpose()).transpose();
+			
 			if (_fit_intercept) {
-				_set_coefficients_and_intercepts(coeffs.topRows(coeffs.rows() - 1), coeffs.bottomRows<1>());
+				_set_coefficients_and_intercepts(coeffs.leftCols(coeffs.cols() - 1), coeffs.rightCols<1>());
 			}
 			else {
 				_set_coefficients(coeffs);

@@ -11,26 +11,25 @@ namespace models {
 namespace regressors {
 	class RidgeRegression : public LinearModel {
 	public:
-		explicit RidgeRegression(double regularization, bool fit_intercept) : _regularization(regularization), LinearModel(fit_intercept) {}
+		explicit RidgeRegression(double regularization, bool fit_intercept = true) : LinearModel(fit_intercept), _regularization(regularization) {}
 
 		RidgeRegression& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXd& target) {
-			// Closed-form solution of Ridge Linear Regression: pinv((input' * input) + I * regularization) * input' * target            
-			Eigen::MatrixXd input_prime(input.rows(), input.cols() + (_fit_intercept ? 1 : 0));
-			input_prime.leftCols(input.cols()) << input;
+			// Closed-form solution of Ridge Linear Regression: pinv((input' * input) + I * regularization) * input' * target'        
+			Eigen::MatrixXd input_prime(input.rows() + (_fit_intercept ? 1 : 0), input.cols());
+			input_prime.topRows(input.rows()) << input;
 
 			if (_fit_intercept) {
-				input_prime.rightCols<1>() = Eigen::VectorXd::Ones(input.rows());
+				input_prime.bottomRows<1>() = Eigen::VectorXd::Ones(input.cols());
 			}
 
-			Eigen::MatrixXd reg = Eigen::MatrixXd::Identity(input_prime.cols(), input_prime.cols()) * _regularization;
+			Eigen::MatrixXd reg = Eigen::MatrixXd::Identity(input_prime.rows(), input_prime.rows()) * _regularization;
 			reg(reg.rows() -1, reg.cols() - 1) = 0;
 
-			Eigen::MatrixXd coeffs = utils::linalg::pseudo_inverse(
-				(input_prime.transpose() * input_prime) + reg)
-				* input_prime.transpose() * target;
+			Eigen::MatrixXd coeffs = (utils::linalg::pseudo_inverse((input_prime * input_prime.transpose()) + reg)
+				* input_prime * target.transpose()).transpose();
 
 			if (_fit_intercept) {
-				_set_coefficients_and_intercepts(coeffs.topRows(coeffs.rows() - 1), coeffs.bottomRows<1>());
+				_set_coefficients_and_intercepts(coeffs.leftCols(coeffs.cols() - 1), coeffs.rightCols<1>());
 			}
 			else {
 				_set_coefficients(coeffs);
