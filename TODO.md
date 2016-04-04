@@ -2,14 +2,14 @@ List of things to implement:
 
 ### Models
 #### Regressors:
+- MultilayerPerceptronRegression
 - LocallyWeightedLinearRegression
 - LassoRegression
-- RidgeRegression
 - KNearestNeighboursRegression
 
 #### Classifiers:
+- Move current implementations to new API and input scheme: SoftmaxRegression, LinearSVMClassifier and MultilayerPerceptronClassifier
 - LogisticRegression
-- MultilayerPerceptron
 - KNearestNeighboursClassifier
 - GaussianDiscriminantAnalysis
 - FisherLinearDiscriminant
@@ -21,14 +21,7 @@ List of things to implement:
 #### Transformation:
 - MeanSubstraction
 - Normalizer
-- Whithening (as an aditional parameter to PrincipalComponentAnalysis)
 - IndependentComponentAnalysis
 
-### Trainers
-- LBFGSTrainer
-
 ### Multiple Common Datasets for doing tests and examples
-
-### Tests:
-- PrincipalComponentAnalysis
-- SoftmaxRegression
+### Make examples and tests
