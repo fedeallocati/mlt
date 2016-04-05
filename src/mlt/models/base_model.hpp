@@ -3,7 +3,6 @@
 
 namespace mlt {
 namespace models {
-
 	class BaseModel {
 	public:
 		bool fitted() const { return _fitted; }
@@ -11,8 +10,13 @@ namespace models {
 		size_t input_size() const { return _input_size; }
 
 		size_t output_size() const { return _output_size; }
+
 	protected:
-		BaseModel() {};
+		BaseModel() = default;
+		BaseModel(const BaseModel&) = default;
+		BaseModel(BaseModel&&) = default;
+		BaseModel& operator=(const BaseModel&) = default;
+		~BaseModel() = default;
 
 		bool _fitted = false;
 		size_t _input_size = -1;
