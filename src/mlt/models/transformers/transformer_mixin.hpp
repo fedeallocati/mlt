@@ -10,18 +10,27 @@ namespace transformers {
 	class TransformerMixin {
 	public:
 		Transformer& fit(const Eigen::MatrixXd& input) {
-			std::cout << "TransformerMixin fit" << std::endl;
 			return static_cast<Transformer&>(*this).fit(input);
 		}
 
 		Transformer& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXd&) {
-			std::cout << "TransformerMixin fit" << std::endl;
 			return static_cast<Transformer&>(*this).fit(input);
 		}
 
 		Transformer& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXi&) {
-			std::cout << "TransformerMixin fit" << std::endl;
 			return static_cast<Transformer&>(*this).fit(input);
+		}
+
+		Eigen::MatrixXd fit_transform(const Eigen::MatrixXd& input) {
+			return static_cast<Transformer&>(*this).fit(input).transform(input);
+		}
+
+		Eigen::MatrixXd fit_transform(const Eigen::MatrixXd& input, const Eigen::MatrixXd&) {
+			return static_cast<Transformer&>(*this).fit(input).transform(input);
+		}
+
+		Eigen::MatrixXd fit_transform(const Eigen::MatrixXd& input, const Eigen::MatrixXi&) {
+			return static_cast<Transformer&>(*this).fit(input).transform(input);
 		}
 	};
 }
