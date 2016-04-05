@@ -3,18 +3,18 @@
 
 #include <Eigen/Core>
 
-#include "../linear_model.hpp"
+#include "linear_regressor_model.hpp"
 #include "../../utils/linalg.hpp"
 
 namespace mlt {
 namespace models {
 namespace regressors {
-    class LeastSquaresLinearRegression : public LinearModel {
+    class LeastSquaresLinearRegression : public LinearRegressorModel {
     public:         
-        explicit LeastSquaresLinearRegression(bool fit_intercept = true) : LinearModel(fit_intercept) {}
+        explicit LeastSquaresLinearRegression(bool fit_intercept = true) : LinearRegressorModel(fit_intercept) {}
 
         LeastSquaresLinearRegression& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXd& target) {
-            // Closed-form solution of Least Squares Linear Regression: pinv(input' * input) * input' * target            
+            // Closed-form solution of Least Squares Linear Regression: (pinv(input * input') * input * target')'
 			Eigen::MatrixXd input_prime(input.rows() + (_fit_intercept ? 1 : 0), input.cols());
 			input_prime.topRows(input.rows()) << input;
 
@@ -22,10 +22,6 @@ namespace regressors {
 				input_prime.bottomRows<1>() = Eigen::VectorXd::Ones(input.cols());
 			}
 
-			// target = 1 * 3
-			// input = 2 * 3
-			// inv = 2 * 2
-			// inv * input * target' = ((2 * 2) * (2 * 3)) * (3 * 1) = (2 * 3) * (3 * 1) = 2 * 1
 			Eigen::MatrixXd coeffs = (utils::linalg::pseudo_inverse(input_prime * input_prime.transpose())
 				* input_prime * target.transpose()).transpose();
 			

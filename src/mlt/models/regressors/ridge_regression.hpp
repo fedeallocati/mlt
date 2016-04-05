@@ -3,18 +3,18 @@
 
 #include <Eigen/Core>
 
-#include "../linear_model.hpp"
+#include "linear_regressor_model.hpp"
 #include "../../utils/linalg.hpp"
 
 namespace mlt {
 namespace models {
 namespace regressors {
-	class RidgeRegression : public LinearModel {
+	class RidgeRegression : public LinearRegressorModel {
 	public:
-		explicit RidgeRegression(double regularization, bool fit_intercept = true) : LinearModel(fit_intercept), _regularization(regularization) {}
+		explicit RidgeRegression(double regularization, bool fit_intercept = true) : LinearRegressorModel(fit_intercept), _regularization(regularization) {}
 
 		RidgeRegression& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXd& target) {
-			// Closed-form solution of Ridge Linear Regression: pinv((input' * input) + I * regularization) * input' * target'        
+			// Closed-form solution of Ridge Linear Regression: (pinv((input * input') + I * regularization) * input * target')'
 			Eigen::MatrixXd input_prime(input.rows() + (_fit_intercept ? 1 : 0), input.cols());
 			input_prime.topRows(input.rows()) << input;
 

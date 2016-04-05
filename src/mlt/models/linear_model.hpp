@@ -14,19 +14,7 @@ namespace models {
 
 		Eigen::MatrixXd coefficients() const { assert(_fitted); return _coefficients_transposed.transpose(); }
 
-		Eigen::VectorXd intercepts() const { assert(_fitted && _fit_intercept); return _intercepts.transpose(); }
-
-		Eigen::MatrixXd predict(const Eigen::MatrixXd& input) const {
-			assert(_fitted);
-
-			Eigen::MatrixXd res;
-
-			if (fit_intercept) {
-				return (_coefficients_transposed * input).colwise() + _intercepts;
-			}
-
-			return _coefficients_transposed * input;
-		}
+		const Eigen::VectorXd& intercepts() const { assert(_fitted && _fit_intercept); return _intercepts; }
 
 	protected:
 		explicit LinearModel(bool fit_intercept) : _fit_intercept(fit_intercept) {}
@@ -50,6 +38,18 @@ namespace models {
 			_fitted = true;
 			_input_size = coefficients.cols();
 			_output_size = coefficients.rows();
+		}
+
+		Eigen::MatrixXd _apply_linear_transformation(const Eigen::MatrixXd& input) const {
+			assert(_fitted);
+
+			Eigen::MatrixXd res;
+
+			if (fit_intercept) {
+				return (_coefficients_transposed * input).colwise() + _intercepts;
+			}
+
+			return _coefficients_transposed * input;
 		}
 
 		const bool _fit_intercept = false;
