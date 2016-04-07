@@ -4,6 +4,7 @@
 #include <Eigen/Core>
 
 #include "base_model.hpp"
+#include <iostream>
 
 namespace mlt {
 namespace models {
@@ -12,32 +13,37 @@ namespace models {
 	public:
 		bool fit_intercept() const { return _fit_intercept; }
 
-		Eigen::MatrixXd coefficients() const { assert(_fitted); return _coefficients_transposed.transpose(); }
+		Eigen::MatrixXd coefficients() const { assert(_fitted); return _coefficients; }
 
 		const Eigen::VectorXd& intercepts() const { assert(_fitted && _fit_intercept); return _intercepts; }
 
 	protected:
-		explicit LinearModel(bool fit_intercept) : _fit_intercept(fit_intercept) {}
+		explicit LinearModel(bool fit_intercept) : _fit_intercept(fit_intercept)
+		{
+			std::cout << fit_intercept << std::endl;
+			std::cout << _fit_intercept << std::endl;
+		}
 
 		void _set_coefficients(const Eigen::MatrixXd& coefficients) {
 			assert(!_fit_intercept);
 
-			_coefficients_transposed = coefficients.transpose();
+			_coefficients = coefficients;
 
 			_fitted = true;
-			_input_size = coefficients.cols();
-			_output_size = coefficients.rows();
+			_input_size = coefficients.rows();
+			_output_size = coefficients.cols();
 		}
 
 		void _set_coefficients_and_intercepts(const Eigen::MatrixXd& coefficients, const Eigen::VectorXd& intercepts) {
+			assert(_fit_intercept);
 			assert(coefficients.rows() == intercepts.rows());
 
-			_coefficients_transposed = coefficients.transpose();
+			_coefficients = coefficients;
 			_intercepts = intercepts;
 
 			_fitted = true;
-			_input_size = coefficients.cols();
-			_output_size = coefficients.rows();
+			_input_size = coefficients.rows();
+			_output_size = coefficients.cols();
 		}
 
 		Eigen::MatrixXd _apply_linear_transformation(const Eigen::MatrixXd& input) const {
@@ -45,17 +51,18 @@ namespace models {
 
 			Eigen::MatrixXd res;
 
-			if (fit_intercept) {
-				return (_coefficients_transposed * input).colwise() + _intercepts;
+			if (_fit_intercept) {
+				return (_coefficients * input).colwise() + _intercepts;
 			}
 
-			return _coefficients_transposed * input;
+			return _coefficients * input;
 		}
 
-		const bool _fit_intercept = false;
+		const bool _fit_intercept;
 
 	private:
-		Eigen::MatrixXd _coefficients_transposed;
+		
+		Eigen::MatrixXd _coefficients;
 		Eigen::VectorXd _intercepts;
 	};
 }

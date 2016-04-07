@@ -1,12 +1,12 @@
-#ifndef MLT_UTILS_LINALNG_HPP
-#define MLT_UTILS_LINALNG_HPP
+#ifndef MLT_UTILS_LINEAR_ALGEBRA_HPP
+#define MLT_UTILS_LINEAR_ALGEBRA_HPP
 
 #include <Eigen/Core>
 #include <Eigen/SVD>
 
 namespace mlt {
 namespace utils {
-namespace linalg {
+namespace linear_algebra {
 	// Moore-Penrose pseudoinverse
 	inline Eigen::MatrixXd
 	pseudo_inverse(const Eigen::MatrixXd& x) {

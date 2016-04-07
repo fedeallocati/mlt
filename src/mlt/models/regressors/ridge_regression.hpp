@@ -4,31 +4,37 @@
 #include <Eigen/Core>
 
 #include "linear_regressor_model.hpp"
-#include "../../utils/linalg.hpp"
+#include "../../utils/linear_solvers.hpp"
 
 namespace mlt {
 namespace models {
 namespace regressors {
+	template <class Solver = utils::linear_solvers::SVDSolver>
 	class RidgeRegression : public LinearRegressorModel {
 	public:
-		explicit RidgeRegression(double regularization, bool fit_intercept = true) : LinearRegressorModel(fit_intercept), _regularization(regularization) {}
+		explicit RidgeRegression(double regularization, bool fit_intercept = true) : LinearRegressorModel(fit_intercept),
+			_regularization(regularization), _solver(Solver()) {}
+
+		explicit RidgeRegression(double regularization, const Solver& solver, bool fit_intercept = true) : LinearRegressorModel(fit_intercept),
+			_regularization(regularization), _solver(solver) {}
+
+		explicit RidgeRegression(double regularization, Solver&& solver, bool fit_intercept = true) : LinearRegressorModel(fit_intercept),
+			_regularization(regularization), _solver(solver) {}
 
 		RidgeRegression& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXd& target) {
-			// Closed-form solution of Ridge Linear Regression: (pinv((input * input') + I * regularization) * input * target')'
-			Eigen::MatrixXd input_prime(input.rows() + (_fit_intercept ? 1 : 0), input.cols());
+			Eigen::MatrixXd input_prime(input.rows() + (fit_intercept() ? 1 : 0), input.cols());
 			input_prime.topRows(input.rows()) << input;
 
-			if (_fit_intercept) {
+			if (fit_intercept()) {
 				input_prime.bottomRows<1>() = Eigen::VectorXd::Ones(input.cols());
 			}
 
 			Eigen::MatrixXd reg = Eigen::MatrixXd::Identity(input_prime.rows(), input_prime.rows()) * _regularization;
 			reg(reg.rows() -1, reg.cols() - 1) = 0;
 
-			Eigen::MatrixXd coeffs = (utils::linalg::pseudo_inverse((input_prime * input_prime.transpose()) + reg)
-				* input_prime * target.transpose()).transpose();
+			Eigen::MatrixXd coeffs = _solver.compute((input_prime * input_prime.transpose() + reg)).solve(input_prime * target.transpose()).transpose();
 
-			if (_fit_intercept) {
+			if (fit_intercept()) {
 				_set_coefficients_and_intercepts(coeffs.leftCols(coeffs.cols() - 1), coeffs.rightCols<1>());
 			}
 			else {
@@ -59,6 +65,7 @@ namespace regressors {
 		}
 
 		double _regularization;
+		Solver _solver;
 	};
 }
 }
