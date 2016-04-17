@@ -18,11 +18,7 @@ namespace models {
 		const Eigen::VectorXd& intercepts() const { assert(_fitted && _fit_intercept); return _intercepts; }
 
 	protected:
-		explicit LinearModel(bool fit_intercept) : _fit_intercept(fit_intercept)
-		{
-			std::cout << fit_intercept << std::endl;
-			std::cout << _fit_intercept << std::endl;
-		}
+		explicit LinearModel(bool fit_intercept) : _fit_intercept(fit_intercept) {}
 
 		void _set_coefficients(const Eigen::MatrixXd& coefficients) {
 			assert(!_fit_intercept);
