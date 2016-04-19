@@ -16,7 +16,7 @@ namespace loss_functions {
 			return (pred - target) / pred.cols();
 		}
 
-		std::tuple<double, Eigen::MatrixXd> loss_and_gradient(const Eigen::Ref<const Eigen::MatrixXd>& pred, const Eigen::Ref<const Eigen::MatrixXd>& target) const const {
+		std::tuple<double, Eigen::MatrixXd> loss_and_gradient(const Eigen::Ref<const Eigen::MatrixXd>& pred, const Eigen::Ref<const Eigen::MatrixXd>& target) const {
 			return std::make_tuple(this->loss(pred, target), this->gradient(pred, target));
 		}
 	};
@@ -34,7 +34,7 @@ namespace loss_functions {
 			return (margin_mask + (target.array().rowwise() * -margin_mask.colwise().sum().array()).matrix()) / pred.cols();
 		}
 
-		std::tuple<double, Eigen::MatrixXd> loss_and_gradient(const Eigen::Ref<const Eigen::MatrixXd>& pred, const Eigen::Ref<const Eigen::MatrixXd>& target) const const {
+		std::tuple<double, Eigen::MatrixXd> loss_and_gradient(const Eigen::Ref<const Eigen::MatrixXd>& pred, const Eigen::Ref<const Eigen::MatrixXd>& target) const {
 			Eigen::MatrixXd hinge_loss = (((pred.rowwise() - pred.cwiseProduct(target).colwise().sum()) - target).array() + _threshold).max(0);
 			Eigen::MatrixXd margin_mask = (hinge_loss.array() > 0).cast<double>();
 			margin_mask = margin_mask + (target.array().rowwise() * -margin_mask.colwise().sum().array()).matrix();
@@ -51,16 +51,13 @@ namespace loss_functions {
 		}
 
 		Eigen::MatrixXd gradient(const Eigen::Ref<const Eigen::MatrixXd>& pred, const Eigen::Ref<const Eigen::MatrixXd>& target) const {
-			// (-a * 2) - (b * 2) = ((-a) - (b)) * 2
-			//Eigen::MatrixXd d_beta = ((-_softmax(pred) * input.transpose()) - (target * input.transpose())) / pred.cols();
-
 			return (_softmax(pred) - target) / pred.cols();
 		}
 
 		std::tuple<double, Eigen::MatrixXd> loss_and_gradient(const Eigen::Ref<const Eigen::MatrixXd>& pred, const Eigen::Ref<const Eigen::MatrixXd>& target) const {
 			return std::make_tuple(this->loss(pred, target), this->gradient(pred, target));
 		}
-	//protected:
+	protected:
 		Eigen::MatrixXd _softmax(const Eigen::Ref<const Eigen::MatrixXd>& x) const {
 			Eigen::MatrixXd result = (x.rowwise() - x.colwise().maxCoeff()).array().exp();
 			return result.array().rowwise() / result.colwise().sum().array();

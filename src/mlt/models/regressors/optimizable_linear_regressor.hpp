@@ -54,25 +54,6 @@ namespace regressors {
 		double _regularization;
 		Optimizer _optimizer;
 	};
-
-	template <class Optimizer = utils::optimizers::StochasticGradientDescent<>>
-	class SquaredLoss : public OptimizableLinearModel<SquaredLoss<Optimizer>, Optimizer> {
-	public:
-		SquaredLoss(double reg, bool fit_intercept = true) : OptimizableLinearRegressor(Optimizer(), fit_intercept), _reg(reg) {}
-
-		SquaredLoss(double reg, const Optimizer& optimizer, bool fit_intercept = true) : OptimizableLinearRegressor(optimizer, fit_intercept), _reg(reg) {}
-
-		double value(const Eigen::Ref<const Eigen::MatrixXd>& params, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {
-			return (((params * input) - result).array().pow(2).sum() / (2 * input.cols())) + _reg * (params.array().pow(2)).sum();
-		}
-
-		std::tuple<double, Eigen::MatrixXd> loss_and_gradient(const Eigen::Ref<const Eigen::MatrixXd>& params, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) const {
-			Eigen::MatrixXd diff = params * input - result;
-			return std::make_tuple((diff.array().pow(2).sum() / (2 * input.cols())) + 0.5 * (params.array().pow(2)).sum(),
-				((diff * input.transpose()) / input.cols()) + _reg * 2 * params);
-		}
-	};
-
 }
 }
 }

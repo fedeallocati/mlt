@@ -58,38 +58,6 @@ void benchmark_linear_solvers() {
 	std::cout << "Diff: " << (linear_regressor_ldlt.coefficients() - linear_regressor_cg.coefficients()).squaredNorm() << std::endl;	
 }
 
-std::tuple<double, Eigen::MatrixXd> linear_svm_cost_and_gradient(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) {
-	Eigen::MatrixXd scores = input * beta;
-	Eigen::MatrixXd hinge_loss = (((scores.colwise() - scores.cwiseProduct(result).rowwise().sum()) - result).array() + 1).max(0); // 4x3
-	double loss = hinge_loss.sum() / input.rows();
-	/*if (params_t::regularization() > 0) {
-		loss += params_t::regularization() * (betarightCols(beta.cols() - 1).array().pow(2)).sum();
-	}*/
-	Eigen::MatrixXd margin_mask = (hinge_loss.array() > 0).cast<double>();
-	margin_mask = margin_mask + (result.array().colwise() * -margin_mask.rowwise().sum().array()).matrix();
-	Eigen::MatrixXd d_beta = input.transpose() * margin_mask / input.rows();
-	/*if (params_t::regularization() > 0) {
-		d_beta.rightCols(d_beta.cols() - 1) += params_t::regularization() * 2 * beta.rightCols(beta.cols() - 1);
-	}*/
-	return std::make_tuple(loss, d_beta);
-}
-
-Eigen::MatrixXd softmax(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input) {
-	Eigen::MatrixXd result = input * beta;
-	result.colwise() -= result.rowwise().maxCoeff();
-	result = result.array().exp();
-	result = result.array().colwise() / result.rowwise().sum().array();
-
-	return result;
-}
-
-std::tuple<double, Eigen::MatrixXd> softmax_regression_cost_and_gradient(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) {
-	Eigen::MatrixXd scores = softmax(beta, input);
-	double loss = -scores.cwiseProduct(result).colwise().sum().array().log().sum() / input.rows();
-	Eigen::MatrixXd d_beta = ((scores.transpose() * input) - (result.transpose() * input)).transpose() / input.rows();
-	return std::make_tuple(loss, d_beta);
-}
-
 int main() {
 	/*lr_example(house_value_dataset(), Eigen::Vector3d(1, 1650, 3));
 	lr_example(correlated_data_dataset(1000000), correlatedData(0));
