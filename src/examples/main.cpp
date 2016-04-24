@@ -1,20 +1,23 @@
 #define EIGEN_USE_MKL_ALL
 
+#include <iostream>
 #include <chrono>
 
 #include <Eigen/Core>
 
 //#include "datasets.hpp"
-#include "../mlt/models/regressors/least_squares_linear_regression.hpp"
+//#include "../mlt/models/regressors/least_squares_linear_regression.hpp"
 #include "../mlt/models/regressors/ridge_regression.hpp"
-#include "../mlt/models/regressors/optimizable_linear_regressor.hpp"
+#include "../mlt/models/optimizable_linear_model.hpp"
+#include "../mlt/utils/optimizers/stochastic_gradient_descent.hpp"
 #include "../mlt/utils/loss_functions.hpp"
-#include "../mlt/models/transformers/principal_components_analysis.hpp"
-#include "../mlt/models/transformers/zero_components_analysis.hpp"
-#include "../mlt/models/pipeline.hpp"
+#include "../mlt/utils/eigen.hpp"
+//#include "../mlt/models/transformers/principal_components_analysis.hpp"
+//#include "../mlt/models/transformers/zero_components_analysis.hpp"
+//#include "../mlt/models/pipeline.hpp"
 
-namespace regressors = mlt::models::regressors;
-namespace linear_solvers = mlt::utils::linear_solvers;
+//namespace regressors = mlt::models::regressors;
+//namespace linear_solvers = mlt::utils::linear_solvers;
 
 //extern void lr_example(std::tuple<Eigen::MatrixXd, Eigen::MatrixXd> data, Eigen::VectorXd test);
 //extern void pca_example(Eigen::MatrixXd data, Eigen::VectorXd test);
@@ -40,7 +43,7 @@ void benchmark(Model& model, Eigen::MatrixXd dataset, Eigen::MatrixXd target, in
 	std::cout << "Tot: " << total << "ms" << std::endl;
 }
 
-void benchmark_linear_solvers() {
+/*void benchmark_linear_solvers() {
 	Eigen::MatrixXd XN = Eigen::MatrixXd::Random(100, 100000);
 	Eigen::RowVectorXd YN = Eigen::RowVectorXd::Random(100000);
 
@@ -56,6 +59,65 @@ void benchmark_linear_solvers() {
 	std::cout << "Diff: " << (linear_regressor_svd.coefficients() - linear_regressor_ldlt.coefficients()).squaredNorm() << std::endl;
 	std::cout << "Diff: " << (linear_regressor_svd.coefficients() - linear_regressor_cg.coefficients()).squaredNorm() << std::endl;
 	std::cout << "Diff: " << (linear_regressor_ldlt.coefficients() - linear_regressor_cg.coefficients()).squaredNorm() << std::endl;	
+}*/
+
+template <typename Model>
+void eval_numerical_gradient(const Model& model, const Eigen::MatrixXd& params, const Eigen::MatrixXd& input, const Eigen::MatrixXd& target) {
+	double fx = model.loss(params, input, target);
+	Eigen::MatrixXd adfx = model.gradient(params, input, target);
+	Eigen::MatrixXd ndfx = Eigen::MatrixXd::Zero(adfx.rows(), adfx.cols());
+	auto h = 0.00000000001;
+
+	Eigen::MatrixXd params_copy = params;
+
+	for (auto i = 0; i < params.rows(); i++) {
+		for (auto j = 0; j < params.cols(); j++) {
+			params_copy(i, j) += h;
+			double fxh = model.loss(params_copy, input, target);
+			params_copy(i, j) -= h;
+			ndfx(i, j) = (fxh - fx) / h;
+		}
+	}
+
+	Eigen::MatrixXd side(params.size(), 3);
+	side.col(0) = mlt::utils::eigen::ravel(adfx);
+	side.col(1) = mlt::utils::eigen::ravel(ndfx);
+	side.col(2) = mlt::utils::eigen::ravel((ndfx - adfx).cwiseAbs().cwiseQuotient(((ndfx.cwiseAbs() + adfx.cwiseAbs()).array() + 1e-5).matrix()));
+	std::cout << side << std::endl;
+}
+
+template <typename Loss>
+void test_optimizable_linear_model(Loss&& loss) {
+	Eigen::MatrixXd input = Eigen::MatrixXd::Random(3, 10) * 100;
+	Eigen::MatrixXd output = Eigen::MatrixXd::Random(2, 10).array() + 1;
+	output = output.array().rowwise() * output.colwise().sum().cwiseInverse().array();
+
+	std::cout << output.colwise().sum() << std::endl;
+
+	std::cout << "Checking Numeric Gradient for Linear Model with " << typeid(Loss).name() << std::endl;
+	mlt::utils::optimizers::StochasticGradientDescent<> sgd;
+	mlt::models::OptimizableLinearModel<Loss, mlt::utils::optimizers::StochasticGradientDescent<>> model(loss, sgd, 0, false);
+	eval_numerical_gradient(model, Eigen::MatrixXd::Random(2, 3), input, output);
+
+	std::cout << "Checking Numeric Gradient for Linear Model with " << typeid(Loss).name() << " and fit intercept" << std::endl;
+	mlt::models::OptimizableLinearModel<Loss, mlt::utils::optimizers::StochasticGradientDescent<>> model2(loss, sgd, 0, true);
+	eval_numerical_gradient(model2, Eigen::MatrixXd::Random(2, 4), input, output);
+}
+
+Eigen::MatrixXd softmax(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input) {
+	Eigen::MatrixXd result = input * beta;
+	result.colwise() -= result.rowwise().maxCoeff();
+	result = result.array().exp();
+	result = result.array().colwise() / result.rowwise().sum().array();
+
+	return result;
+}
+
+std::tuple<double, Eigen::MatrixXd> softmax_regression_cost_and_gradient(const Eigen::MatrixXd& beta, const Eigen::MatrixXd& input, const Eigen::MatrixXd& result) {
+	Eigen::MatrixXd scores = softmax(beta, input);
+	double loss = -scores.cwiseProduct(result).colwise().sum().array().log().sum() / input.rows();
+	Eigen::MatrixXd d_beta = ((scores.transpose() * input) - (result.transpose() * input)).transpose() / input.rows();
+	return std::make_tuple(loss, d_beta);
 }
 
 int main() {
@@ -162,27 +224,31 @@ int main() {
 	std::cout << "loss with closed form: " << sgd.loss(ridge_regressor2.coefficients(), input, output) << std::endl;
 	std::cout << "loss with SGD: " << sgd.loss(sgd.coefficients(), input, output) << std::endl;*/
 
-	mlt::utils::loss_functions::SoftmaxLoss loss1;
-	mlt::utils::loss_functions::HingeLoss loss2(1.0);
+	//test_optimizable_linear_model(mlt::utils::loss_functions::SquaredLoss());
+	//test_optimizable_linear_model(mlt::utils::loss_functions::HingeLoss(10));
+
+	Eigen::MatrixXd x1(3, 1);
+	x1 << -2.85, 0.86, 0.28;
+
+	Eigen::MatrixXd result = (x1.rowwise() - x1.colwise().maxCoeff()).array().exp();
+	result = result.array().rowwise() / result.colwise().sum().array();
+	std::cout << result.transpose() << std::endl;
 
 	Eigen::MatrixXd input = Eigen::MatrixXd::Random(3, 10);
 	Eigen::MatrixXd output = Eigen::MatrixXd::Random(2, 10);
 
-	regressors::RidgeRegression<> ridge_regressor2(0.0, false);
+	mlt::models::regressors::RidgeRegression<> ridge_regressor2(0.0, false);
 
 	ridge_regressor2.fit(input, output);
 
 	auto a1 = softmax_regression_cost_and_gradient(ridge_regressor2.coefficients().transpose(), input.transpose(), output.transpose());
-	auto b1 = loss1.loss_and_gradient(ridge_regressor2.coefficients() * input, output);
+	auto b1 = mlt::utils::loss_functions::SoftmaxLoss().loss_and_gradient(ridge_regressor2.coefficients() * input, output);
 
 	std::cout << std::get<0>(a1) << " vs " << std::get<0>(b1) << std::endl;
 	std::cout << std::get<1>(a1).transpose() << std::endl << " vs " << std::endl << std::get<1>(b1) * input.transpose() << std::endl;
 
-	auto a2 = linear_svm_cost_and_gradient(ridge_regressor2.coefficients().transpose(), input.transpose(), output.transpose());
-	auto b2 = loss2.loss_and_gradient(ridge_regressor2.coefficients() * input, output);
 
-	std::cout << std::get<0>(a2) << " vs " << std::get<0>(b2) << std::endl;
-	std::cout << std::get<1>(a2).transpose() << std::endl << " vs " << std::endl << std::get<1>(b2) * input.transpose() << std::endl;
+	test_optimizable_linear_model(mlt::utils::loss_functions::SoftmaxLoss());
 
 	std::cin.get();
 

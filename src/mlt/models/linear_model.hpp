@@ -13,14 +13,14 @@ namespace models {
 	public:
 		bool fit_intercept() const { return _fit_intercept; }
 
-		Eigen::MatrixXd coefficients() const { assert(_fitted); return _coefficients; }
+		const Eigen::MatrixXd& coefficients() const { assert(_fitted); return _coefficients; }
 
 		const Eigen::VectorXd& intercepts() const { assert(_fitted && _fit_intercept); return _intercepts; }
 
 	protected:
 		explicit LinearModel(bool fit_intercept) : _fit_intercept(fit_intercept) {}
 
-		void _set_coefficients(const Eigen::MatrixXd& coefficients) {
+		void _set_coefficients(const Eigen::Ref<const Eigen::MatrixXd>& coefficients) {
 			assert(!_fit_intercept);
 
 			_coefficients = coefficients;
@@ -30,7 +30,7 @@ namespace models {
 			_output_size = coefficients.cols();
 		}
 
-		void _set_coefficients_and_intercepts(const Eigen::MatrixXd& coefficients, const Eigen::VectorXd& intercepts) {
+		void _set_coefficients_and_intercepts(const Eigen::Ref<const Eigen::MatrixXd>& coefficients, const Eigen::Ref<const Eigen::VectorXd>& intercepts) {
 			assert(_fit_intercept);
 			assert(coefficients.rows() == intercepts.rows());
 
@@ -42,16 +42,22 @@ namespace models {
 			_output_size = coefficients.cols();
 		}
 
-		Eigen::MatrixXd _apply_linear_transformation(const Eigen::MatrixXd& input) const {
+		Eigen::MatrixXd _apply_linear_transformation(const Eigen::Ref<const Eigen::MatrixXd>& input) const {
 			assert(_fitted);
 
-			Eigen::MatrixXd res;
-
 			if (_fit_intercept) {
-				return (_coefficients * input).colwise() + _intercepts;
+				return _apply_linear_transformation(input, _coefficients, _intercepts);
 			}
 
-			return _coefficients * input;
+			return _apply_linear_transformation(input, _coefficients);
+		}
+
+		static Eigen::MatrixXd _apply_linear_transformation(const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& coefficients) {
+			return coefficients * input;
+		}
+
+		static Eigen::MatrixXd _apply_linear_transformation(const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& coefficients, const Eigen::Ref<const Eigen::VectorXd>& intercepts) {
+			return (coefficients * input).colwise() + intercepts;
 		}
 
 		const bool _fit_intercept;

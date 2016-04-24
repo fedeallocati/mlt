@@ -59,6 +59,10 @@ namespace loss_functions {
 		}
 	protected:
 		Eigen::MatrixXd _softmax(const Eigen::Ref<const Eigen::MatrixXd>& x) const {
+
+			//x- = np.max(x, axis = 0)
+			//scores = np.exp(scores) / np.sum(np.exp(scores), axis = 0)
+
 			Eigen::MatrixXd result = (x.rowwise() - x.colwise().maxCoeff()).array().exp();
 			return result.array().rowwise() / result.colwise().sum().array();
 		}

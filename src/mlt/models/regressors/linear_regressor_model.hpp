@@ -10,7 +10,7 @@ namespace models {
 namespace regressors {
 	class LinearRegressorModel : public LinearModel {
 	public:
-		Eigen::MatrixXd predict(const Eigen::MatrixXd& input) const {
+		Eigen::MatrixXd predict(const Eigen::Ref<const Eigen::MatrixXd>& input) const {
 			assert(_fitted);
 
 			return _apply_linear_transformation(input);
