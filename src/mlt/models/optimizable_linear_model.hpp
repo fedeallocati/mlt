@@ -27,17 +27,11 @@ namespace models {
 			_regularization(regularization) {}
 
 		OptimizableLinearModel& fit(const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& target, bool cold_start = true) {
-			Eigen::MatrixXd init = this->_fitted && !cold_start ? this->coefficients() : 
+			Eigen::MatrixXd init = this->_fitted && !cold_start ?
+				this->coefficients() : 
 				(Eigen::MatrixXd::Random(target.rows(), input.rows() + (_fit_intercept ? 1 : 0)) * 0.005);
-			Eigen::MatrixXd coeffs = _optimizer.run(*this, input, target, init, cold_start);
 
-			if (_fit_intercept) {
-				_set_coefficients_and_intercepts(coeffs.leftCols(coeffs.cols() - 1), coeffs.rightCols<1>());
-			}
-			else {
-				_set_coefficients(coeffs);
-			}
-
+			_set_coefficients(_optimizer.run(*this, input, target, init, cold_start));
 			return *this;
 		}
 

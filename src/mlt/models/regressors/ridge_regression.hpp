@@ -22,23 +22,16 @@ namespace regressors {
 			_regularization(regularization), _solver(solver) {}
 
 		RidgeRegression& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXd& target) {
-			Eigen::MatrixXd input_prime(input.rows() + (fit_intercept() ? 1 : 0), input.cols());
+			Eigen::MatrixXd input_prime(input.rows() + (_fit_intercept ? 1 : 0), input.cols());
 			input_prime.topRows(input.rows()) << input;
 			Eigen::MatrixXd reg = Eigen::MatrixXd::Identity(input_prime.rows(), input_prime.rows()) * _regularization;
 
-			if (fit_intercept()) {
+			if (_fit_intercept) {
 				input_prime.bottomRows<1>() = Eigen::VectorXd::Ones(input.cols());
 				reg(reg.rows() - 1, reg.cols() - 1) = 0;
 			}
 
-			Eigen::MatrixXd coeffs = _solver.compute((input_prime * input_prime.transpose() + reg)).solve(input_prime * target.transpose()).transpose();
-
-			if (fit_intercept()) {
-				_set_coefficients_and_intercepts(coeffs.leftCols(coeffs.cols() - 1), coeffs.rightCols<1>());
-			}
-			else {
-				_set_coefficients(coeffs);
-			}
+			_set_coefficients(_solver.compute((input_prime * input_prime.transpose() + reg)).solve(input_prime * target.transpose()).transpose());
 
 			return *this;
 		}

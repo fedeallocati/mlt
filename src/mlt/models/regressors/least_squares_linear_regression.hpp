@@ -26,14 +26,7 @@ namespace regressors {
 				input_prime.bottomRows<1>() = Eigen::VectorXd::Ones(input.cols());
 			}
 
-			Eigen::MatrixXd coeffs = _solver.compute(input_prime * input_prime.transpose()).solve(input_prime * target.transpose()).transpose();
-
-			if (_fit_intercept) {
-				_set_coefficients_and_intercepts(coeffs.leftCols(coeffs.cols() - 1), coeffs.rightCols<1>());
-			}
-			else {
-				_set_coefficients(coeffs);
-			}
+			_set_coefficients(_solver.compute(input_prime * input_prime.transpose()).solve(input_prime * target.transpose()).transpose());
 
 			return *this;
         }
