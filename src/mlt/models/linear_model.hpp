@@ -13,9 +13,9 @@ namespace models {
 	public:
 		bool fit_intercept() const { return _fit_intercept; }
 
-		const Eigen::MatrixXd& coefficients() const { assert(_fitted); return _fit_intercept ? _coefficients.leftCols(_coefficients.cols() - 1) : _coefficients; }
+		Eigen::MatrixXd coefficients() const { assert(_fitted); return _fit_intercept ? _coefficients.leftCols(_coefficients.cols() - 1) : _coefficients; }
 
-		const Eigen::VectorXd& intercepts() const { assert(_fitted && _fit_intercept); return _coefficients.rightCols<1>(); }
+		Eigen::VectorXd intercepts() const { assert(_fitted && _fit_intercept); return _coefficients.rightCols<1>(); }
 	protected:
 		explicit LinearModel(bool fit_intercept) : _fit_intercept(fit_intercept) {}
 
