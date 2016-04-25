@@ -47,7 +47,7 @@ namespace loss_functions {
 	class SoftmaxLoss {
 	public:
 		double loss(const Eigen::Ref<const Eigen::MatrixXd>& pred, const Eigen::Ref<const Eigen::MatrixXd>& target) const {
-			return -_softmax(pred).cwiseProduct(target).rowwise().sum().array().log().sum() / pred.cols();
+			return -_softmax(pred).cwiseProduct(target).colwise().sum().array().log().sum() / pred.cols();
 		}
 
 		Eigen::MatrixXd gradient(const Eigen::Ref<const Eigen::MatrixXd>& pred, const Eigen::Ref<const Eigen::MatrixXd>& target) const {
@@ -59,10 +59,6 @@ namespace loss_functions {
 		}
 	protected:
 		Eigen::MatrixXd _softmax(const Eigen::Ref<const Eigen::MatrixXd>& x) const {
-
-			//x- = np.max(x, axis = 0)
-			//scores = np.exp(scores) / np.sum(np.exp(scores), axis = 0)
-
 			Eigen::MatrixXd result = (x.rowwise() - x.colwise().maxCoeff()).array().exp();
 			return result.array().rowwise() / result.colwise().sum().array();
 		}

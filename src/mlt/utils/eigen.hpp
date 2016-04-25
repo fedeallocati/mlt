@@ -6,12 +6,12 @@
 namespace mlt {
 namespace utils {
 namespace eigen {
-	Eigen::Map<const Eigen::MatrixXd> ravel(const Eigen::Ref<const Eigen::MatrixXd>& x)
+	inline Eigen::Map<const Eigen::MatrixXd> ravel(const Eigen::Ref<const Eigen::MatrixXd>& x)
 	{
 		return Eigen::Map<const Eigen::MatrixXd>(x.data(), x.size(), 1);
 	}
 
-	Eigen::Map<const Eigen::MatrixXd> unravel(const Eigen::Ref<const Eigen::MatrixXd>& x, size_t rows, size_t cols)
+	inline Eigen::Map<const Eigen::MatrixXd> unravel(const Eigen::Ref<const Eigen::MatrixXd>& x, size_t rows, size_t cols)
 	{
 		return Eigen::Map<const Eigen::MatrixXd>(x.data(), rows, cols);
 	}

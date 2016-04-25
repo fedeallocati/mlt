@@ -1,6 +1,9 @@
 #ifndef MLT_MODELS_TRANSFORMERS_PRINCIPAL_COMPONENTS_ANALYSIS_IMPL_HPP
 #define MLT_MODELS_TRANSFORMERS_PRINCIPAL_COMPONENTS_ANALYSIS_IMPL_HPP
 
+#include <Eigen/Core>
+#include <Eigen/SVD>
+
 #include "../base_model.hpp"
 #include "transformer_mixin.hpp"
 

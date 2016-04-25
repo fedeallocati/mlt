@@ -1,101 +1,103 @@
-#ifdef tuvieja
 #define EIGEN_USE_MKL_ALL
-//#define MLT_VERBOSE_TRAINING
 
 #include <iostream>
-#include <iomanip>
 
-#include <Eigen/Eigen>
+#include <Eigen/Core>
 
 #include "misc.hpp"
+
 #include "../mlt/models/regressors/least_squares_linear_regression.hpp"
-#include "../mlt/trainers/gradient_based/gradient_descent.hpp"
+#include "../mlt/models/regressors/ridge_regression.hpp"
+#include "../mlt/models/optimizable_linear_model.hpp"
+#include "../mlt/utils/optimizers/stochastic_gradient_descent.hpp"
+#include "../mlt/utils/loss_functions.hpp"
 
-using namespace std;
-using namespace Eigen;
+void benchmark_linear_solvers() {
+	Eigen::MatrixXd XN = Eigen::MatrixXd::Random(100, 100000);
+	Eigen::RowVectorXd YN = Eigen::RowVectorXd::Random(100000);
 
-using namespace mlt::models::regressors;
-using namespace mlt::trainers::gradient_based;
+	mlt::models::regressors::LeastSquaresLinearRegression<mlt::utils::linear_solvers::SVDSolver> linear_regressor_svd(false);
+	benchmark(linear_regressor_svd, XN, YN, 100);
+	mlt::models::regressors::LeastSquaresLinearRegression<mlt::utils::linear_solvers::LDLTSolver> linear_regressor_ldlt(false);
+	benchmark(linear_regressor_ldlt, XN, YN, 100);
+	std::cout << std::endl;
+	mlt::models::regressors::LeastSquaresLinearRegression<mlt::utils::linear_solvers::CGSolver> linear_regressor_cg(false);
+	benchmark(linear_regressor_cg, XN, YN, 100);
+	std::cout << std::endl;
 
-struct Params {
-    struct GradientDescent {
-		static constexpr int epochs() { return 800; }
-		static constexpr int batch_size() { return 0; }
-		static constexpr double learning_rate() { return 0.001; }
-		static constexpr double learning_rate_decay() { return 1; }
-		static constexpr gradient_descent_update_t update_method() { return gradient_descent_update_t::gradient_descent; }
-		static constexpr double update_param() { return 0; }
-    };
-
-	struct LeastSquaresLinearRegression {
-		static constexpr double regularization() { return 0; }
-	};
-};
-
-void lr_example(tuple<MatrixXd, MatrixXd> data, VectorXd test) {
-    MatrixXd input, target;
-	
-    std::tie(input, target) = data;
-
-    cout << "First 10 examples from the dataset: " << endl;
-
-    for (auto i = 0; i < 10; i++) {
-        cout << " x = [";
-
-        for (auto j = 0; j < input.cols() - 1; j++) {
-            cout << input(i, j) << " ";
-        }
-
-        cout << input(i, input.cols() - 1) << "], y = [";
-
-        for (auto j = 0; j < target.cols() - 1; j++) {
-            cout << target(i, j) << " ";
-        }
-
-        cout << target(i, target.cols() - 1) << "]" << endl;
-    }
-
-    // Normalize input features
-    RowVectorXd mean = input.rightCols(input.cols() - 1).colwise().mean();
-    input.rightCols(input.cols() - 1).rowwise() -= mean;
-    MatrixXd cov = (input.rightCols(input.cols() - 1).adjoint() * input.rightCols(input.cols() - 1)) / double(input.rows() - 1);
-    RowVectorXd sigma = cov.diagonal().transpose().cwiseSqrt();
-    input.array().rightCols(input.cols() - 1).rowwise() /= sigma.array();
-        
-    LeastSquaresLinearRegression<Params> lr1(input.cols() - 1, target.cols());
-    LeastSquaresLinearRegression<Params> lr2;
-
-    GradientDescentTrainer<Params, decltype(lr1)> gdt(lr1);
-
-    cout << "Training with Gradient Descent..." << endl;
-    auto time1 = benchmark([&]() { gdt.train(input, target); }).count();
-    cout << "Training with Normal Equations.." << endl;
-    auto time2 = benchmark([&]() { lr2.self_train(input, target); }).count();
-
-    cout << endl;
-    cout << "Train Time: \t" << time1 << "ms\t" << time2 << "ms" << endl << endl;
-    
-    MatrixXd params(lr1.params_size(), 2);
-    params.col(0) = lr1.params();
-    params.col(1) = lr2 .params();      
-    
-    cout << "Params Found: " << endl << params << endl << endl;
-    cout << "Train Cost: \t" << lr1.cost(input, target) << "\t" << lr2.cost(input, target) << endl << endl;
-
-    MatrixXd gradients(lr1.params_size(), 2);
-    gradients.col(0) = get<1>(lr1.cost_and_gradient(input, target));
-    gradients.col(1) = get<1>(lr2.cost_and_gradient(input, target));
-
-    cout << "Cost Gradient: " << endl << gradients << endl << endl;
-
-    MatrixXd predictions(target.cols(), 2);
-    VectorXd test_norm = test;
-    test_norm.bottomRows(input.cols() - 1) -= mean.transpose();
-    test_norm.bottomRows(input.cols() - 1) = test_norm.bottomRows(input.cols() - 1).cwiseQuotient(sigma.transpose());
-
-    predictions.col(0) = lr1.regress_single(test_norm);
-    predictions.col(1) = lr2.regress_single(test_norm);
-    cout << "Prediction for test: " << endl << predictions << endl << endl;
-    cin.get();
+	std::cout << "Diff: " << (linear_regressor_svd.coefficients() - linear_regressor_ldlt.coefficients()).squaredNorm() << std::endl;
+	std::cout << "Diff: " << (linear_regressor_svd.coefficients() - linear_regressor_cg.coefficients()).squaredNorm() << std::endl;
+	std::cout << "Diff: " << (linear_regressor_ldlt.coefficients() - linear_regressor_cg.coefficients()).squaredNorm() << std::endl;
 }
-#endif
+
+template <typename Loss>
+void test_optimizable_linear_model(Loss&& loss) {
+	auto samples = 100;
+	Eigen::MatrixXd input = Eigen::MatrixXd::Random(3, samples) * 100;
+	Eigen::MatrixXd output = Eigen::MatrixXd::Random(2, samples).array();
+	output = (output.array() > 0.0).cast<double>();
+	output.row(1) = 1 - output.row(0).array();
+
+	mlt::utils::optimizers::StochasticGradientDescent<> sgd;
+	mlt::models::OptimizableLinearModel<Loss, mlt::utils::optimizers::StochasticGradientDescent<>> model(loss, sgd, 0, false);
+	eval_numerical_gradient(model, Eigen::MatrixXd::Random(2, 3) * 0.05, input, output);
+
+	mlt::models::OptimizableLinearModel<Loss, mlt::utils::optimizers::StochasticGradientDescent<>> model2(loss, sgd, 0, true);
+	eval_numerical_gradient(model2, Eigen::MatrixXd::Random(2, 4) * 0.05, input, output);
+}
+
+void test_optimizable_linear_models() {
+	test_optimizable_linear_model(mlt::utils::loss_functions::SoftmaxLoss());
+	test_optimizable_linear_model(mlt::utils::loss_functions::SquaredLoss());
+	test_optimizable_linear_model(mlt::utils::loss_functions::HingeLoss(10));
+}
+
+void lr_examples() {
+	benchmark_linear_solvers();
+
+	Eigen::MatrixXd X1(2, 3);
+	Eigen::MatrixXd Y1(1, 3);
+
+	X1.row(0) << 0, 1, 2;
+	X1.row(1) << 0, 1, 2;
+	Y1 << 0, 1, 2;
+
+	mlt::models::regressors::LeastSquaresLinearRegression<> linear_regressor(false);
+	linear_regressor.fit(X1, Y1);
+
+	std::cout << "LinearRegression: " << std::endl;
+	std::cout << linear_regressor.coefficients() << std::endl;
+	if (linear_regressor.fit_intercept()) {
+	std::cout << linear_regressor.intercepts() << std::endl;
+	}
+	std::cout << linear_regressor.predict(X1.col(0)) << std::endl;
+
+	Eigen::MatrixXd X2(2, 3);
+	Eigen::MatrixXd Y2(1, 3);
+
+	X2.row(0) << 0, 0, 1;
+	X2.row(1) << 0, 0, 1;
+	Y2 << 0, .1, 1;
+
+	mlt::models::regressors::RidgeRegression<> ridge_regressor(0.5, true);
+	ridge_regressor.fit(X2, Y2);
+
+	std::cout << "RidgeRegression: " << std::endl;
+	std::cout << ridge_regressor.coefficients() << std::endl;
+	std::cout << ridge_regressor.intercepts() << std::endl;
+	std::cout << ridge_regressor.predict(X2.col(0)) << std::endl;
+
+	mlt::utils::optimizers::StochasticGradientDescent<> grad_descent(10, 2000, 0.001, 1);
+	mlt::utils::loss_functions::SquaredLoss loss;
+	mlt::models::OptimizableLinearModel<mlt::utils::loss_functions::SquaredLoss, mlt::utils::optimizers::StochasticGradientDescent<>> sgd(loss, grad_descent, 0.5, true);
+
+	sgd.fit(X2, Y2, true);
+
+	std::cout << "OptimizableLinearModel<SquaredLoss, SGD>: " << std::endl;
+	std::cout << ridge_regressor.coefficients() << std::endl;
+	std::cout << ridge_regressor.intercepts() << std::endl;
+	std::cout << sgd.predict(X2.col(0)) << std::endl;
+
+	std::cout << "loss with closed form: " << sgd.loss(ridge_regressor.coefficients(), X2, Y2) << std::endl;
+	std::cout << "loss with SGD: " << sgd.loss(sgd.coefficients(), X2, Y2) << std::endl;
+}

@@ -1,43 +1,39 @@
-#ifdef tuvieja
 #define EIGEN_USE_MKL_ALL
-//#define MLT_VERBOSE_TRAINING
 
 #include <iostream>
-#include <iomanip>
 
-#include <Eigen/Eigen>
+#include <Eigen/Core>
 
 #include "misc.hpp"
-#include "../mlt/models/transformations/principal_components_analysis.hpp"
 
-using namespace std;
-using namespace Eigen;
+#include "../mlt/models/transformers/principal_components_analysis.hpp"
+#include "../mlt/models/transformers/zero_components_analysis.hpp"
 
-using namespace mlt::models::transformations;
+void pca_examples() {
+	Eigen::MatrixXd X(2, 6);
 
-struct Params {
-    struct PrincipalComponentsAnalysis {
-        static constexpr bool normalize_mean() { return true; }
-        static constexpr bool normalize_variance() { return true; }
-        static constexpr int new_dimension() { return 2; }
-        static constexpr double variance_to_retain() { return 0; }
-    };
-};
+	X.row(0) << -1, -2, -3, 1, 2, 3;
+	X.row(1) << -1, -1, -2, 1, 1, 2;
 
-void pca_example(MatrixXd input, VectorXd test) {
-    PrincipalComponentsAnalysis<Params> pca;
-        
-    cout << "Training Principal Components Analysis.." << endl;
-    auto time = benchmark([&]() { pca.self_train(input); }).count();
+	mlt::models::transformers::PrincipalComponentsAnalysis pca;
+	pca.fit(X);
 
-    cout << endl;
-    cout << "Train Time: \t" << time << "ms" << endl << endl;
+	std::cout << "PCA: " << std::endl;
+	std::cout << pca.explained_variance_ratio() << std::endl << std::endl;
+	std::cout << "X2" << std::endl << X << std::endl;
+	std::cout << "PCA(X2)" << std::endl << pca.transform(X) << std::endl;
+	std::cout << "PCA-1(PCA(X2))" << std::endl << pca.inverse_transform(pca.transform(X)) << std::endl;
+	std::cout << "PCA(X2[:,1])" << std::endl << pca.transform(X.leftCols(1)) << std::endl;
+	std::cout << "PCA-1(PCA(X2[:,1]))" << std::endl << pca.inverse_transform(pca.transform(X.leftCols(1))) << std::endl << std::endl;
 
-    cout << "Matrix U Found: " << endl << pca.matrix_u() << endl << endl;
+	mlt::models::transformers::ZeroComponentsAnalysis zca;
+	zca.fit(X);
 
-    VectorXd test_norm = test;
-    
-    cout << "Transformation for test: " << endl << pca.transform_single(test_norm) << endl << endl;
-    cin.get();
+	std::cout << "ZCA: " << std::endl;
+	std::cout << zca.explained_variance_ratio() << std::endl << std::endl;
+	std::cout << "X2" << std::endl << X << std::endl;
+	std::cout << "ZCA(X2)" << std::endl << zca.transform(X) << std::endl;
+	std::cout << "ZCA-1(ZCA(X2))" << std::endl << zca.inverse_transform(zca.transform(X)) << std::endl;
+	std::cout << "ZCA(X2[:,1])" << std::endl << zca.transform(X.leftCols(1)) << std::endl;
+	std::cout << "ZCA-1(ZCA(X2[:,1]))" << std::endl << zca.inverse_transform(zca.transform(X.leftCols(1))) << std::endl << std::endl;
 }
-#endif

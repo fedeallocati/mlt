@@ -44,7 +44,7 @@ namespace optimizers {
             for (auto epoch = 0; epoch < _epochs; epoch++) {
                 for (auto iter = 0; iter < iters_per_epoch; iter++) {
                     Eigen::MatrixXd input_batch = Eigen::MatrixXd(input.rows(), _batch_size);
-                    Eigen::MatrixXd target_batch = Eigen::MatrixXd(target.rows(), _batch_size);
+					Eigen::Matrix<TargetType, Eigen::Dynamic, Eigen::Dynamic> target_batch = Eigen::Matrix<TargetType, Eigen::Dynamic, Eigen::Dynamic>(target.rows(), _batch_size);
 
                     std::vector<int> indexs(_batch_size);
                     std::generate(indexs.begin(), indexs.end(), [&]() { return distribution(generator); });
@@ -52,12 +52,11 @@ namespace optimizers {
                     auto i = 0;
                     for (auto ridx : indexs) {
                         input_batch.col(i) = input.col(ridx);
-						target_batch.col(i) = target.col(ridx).cast<double>();
+						target_batch.col(i) = target.col(ridx);
                         i++;
                     }
 
-                    auto gradient = eigen::ravel(std::get<1>(model.loss_and_gradient(eigen::unravel(params, init.rows(), init.cols()), input_batch, target_batch)));
-					params += _update_method.step(_current_learning_rate, gradient);
+					params += _update_method.step(_current_learning_rate, eigen::ravel(model.gradient(eigen::unravel(params, init.rows(), init.cols()), input_batch, target_batch)));
                 }
 
 				_current_learning_rate *= _learning_rate_decay;

@@ -26,11 +26,10 @@ namespace models {
 			bool fit_intercept = true) : LinearModel(fit_intercept), _loss(loss), _optimizer(optimizer),
 			_regularization(regularization) {}
 
-		template <typename TargetType>
-		OptimizableLinearModel& fit(const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::Matrix<TargetType, Eigen::Dynamic, Eigen::Dynamic>>& target, bool cold_start) {
+		OptimizableLinearModel& fit(const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& target, bool cold_start = true) {
 			Eigen::MatrixXd init = this->_fitted && !cold_start ? this->coefficients() : 
 				(Eigen::MatrixXd::Random(target.rows(), input.rows() + (_fit_intercept ? 1 : 0)) * 0.005);
-			Eigen::MatrixXd coeffs = _optimizer.run(this, input, target, init, cold_start);
+			Eigen::MatrixXd coeffs = _optimizer.run(*this, input, target, init, cold_start);
 
 			if (_fit_intercept) {
 				_set_coefficients_and_intercepts(coeffs.leftCols(coeffs.cols() - 1), coeffs.rightCols<1>());
@@ -44,7 +43,6 @@ namespace models {
 
 		Eigen::MatrixXd predict(const Eigen::MatrixXd& input) const {
 			assert(_fitted);
-
 			return _apply_linear_transformation(input);
 		}
 
@@ -77,8 +75,6 @@ namespace models {
 				Eigen::MatrixXd gradient = Eigen::MatrixXd::Zero(coeffs.rows(), coeffs.cols());
 				gradient.leftCols(coeffs.cols() - 1) = std::get<1>(res) * input.transpose() + _regularization * 2 * coeffs.leftCols(coeffs.cols() - 1);
 				gradient.rightCols<1>() = std::get<1>(res).rowwise().sum();
-				std::cout << "Coeffs" << coeffs.rows() << "*" << coeffs.cols() << std::endl;
-				std::cout << "Grad'" << gradient.rows() << "*" << gradient.cols() << std::endl;
 				return { std::get<0>(res) + _regularization * (coeffs.leftCols(coeffs.cols() - 1).array().pow(2).sum()), gradient };
 			}
 			else {
