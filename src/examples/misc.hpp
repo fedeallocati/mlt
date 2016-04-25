@@ -141,7 +141,7 @@ void benchmark(Model& model, Eigen::MatrixXd dataset, int iters) {
 	double min = std::numeric_limits<double>::max(), max = 0, total = 0;
 
 	for (auto it = 0; it < iters; it++) {
-		double elapsed = benchmark_single<std::chrono::milliseconds>([&] { model.fit(dataset, target); }).count();
+		double elapsed = benchmark_single<std::chrono::milliseconds>([&] { model.fit(dataset); }).count();
 		min = std::min(min, elapsed);
 		max = std::max(max, elapsed);
 		total += elapsed;
