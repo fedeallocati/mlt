@@ -44,7 +44,7 @@ namespace transformers {
 
 		using TransformerMixin<Concrete>::fit;
 
-		Concrete& fit(const Eigen::MatrixXd& input) {
+		Concrete& fit(const Eigen::MatrixXd& input, bool = true) {
 			assert(this->_components_size == -1 || this->_components_size <= input.cols());
 
 			this->_mean = input.rowwise().mean();

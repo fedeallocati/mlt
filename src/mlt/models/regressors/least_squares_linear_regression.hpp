@@ -18,7 +18,7 @@ namespace regressors {
 
 		explicit LeastSquaresLinearRegression(Solver&& solver, bool fit_intercept = true) : LinearRegressorModel(fit_intercept), _solver(solver) {}
 
-        LeastSquaresLinearRegression& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXd& target) {
+        LeastSquaresLinearRegression& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXd& target, bool = true) {
             Eigen::MatrixXd input_prime(input.rows() + (_fit_intercept ? 1 : 0), input.cols());
 			input_prime.topRows(input.rows()) << input;
 

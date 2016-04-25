@@ -7,9 +7,9 @@ namespace models {
 	public:
 		bool fitted() const { return _fitted; }
 
-		size_t input_size() const { return _input_size; }
+		size_t input_size() const { assert(fitted); return _input_size; }
 
-		size_t output_size() const { return _output_size; }
+		size_t output_size() const { assert(fitted); return _output_size; }
 
 	protected:
 		BaseModel() = default;

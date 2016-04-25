@@ -26,6 +26,11 @@ namespace models {
 			bool fit_intercept = true) : LinearModel(fit_intercept), _loss(loss), _optimizer(optimizer),
 			_regularization(regularization) {}
 
+		Eigen::MatrixXd predict(const Eigen::MatrixXd& input) const {
+			assert(_fitted);
+			return _apply_linear_transformation(input);
+		}
+
 		OptimizableLinearModel& fit(const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& target, bool cold_start = true) {
 			Eigen::MatrixXd init = this->_fitted && !cold_start ?
 				this->coefficients() : 
@@ -33,11 +38,6 @@ namespace models {
 
 			_set_coefficients(_optimizer.run(*this, input, target, init, cold_start));
 			return *this;
-		}
-
-		Eigen::MatrixXd predict(const Eigen::MatrixXd& input) const {
-			assert(_fitted);
-			return _apply_linear_transformation(input);
 		}
 
 		double loss(const Eigen::Ref<const Eigen::MatrixXd>& coeffs, const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& target) const {

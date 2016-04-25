@@ -13,6 +13,7 @@ namespace models {
 	class Pipeline {
 	};
 
+namespace internal {
 	template<size_t _Index, class _Pipline>
 	struct sub_pipeline_element;
 
@@ -55,81 +56,39 @@ namespace models {
 		typedef typename std::add_cv<typename sub_pipeline_element<_Index, _Pipline>::model_type>::type model_type;
 		typedef typename std::add_cv<typename sub_pipeline_element<_Index, _Pipline>::type>::type type;
 	};
-
+}
 	template<>
 	class Pipeline<> {
 		Pipeline() = delete;
 	};
 
 	template <class T>
-	class Pipeline<T> {
+	class Pipeline<T> : public T {
 	public:
-		explicit Pipeline(T& estimator) : _estimator(estimator) {}
-
-		using pipeline_t = typename Pipeline<T>;
+		explicit Pipeline(T& estimator) : T(estimator) {}
 
 		template<size_t _Index>
-		using pipeline_model_t = typename sub_pipeline_element<_Index, pipeline_t>::model_type;
+		using pipeline_model_t = typename internal::sub_pipeline_element<_Index, Pipeline<T>>::model_type;
 
 		template<size_t _Index>
-		using sub_pipeline_t = typename sub_pipeline_element<_Index, pipeline_t>::type;
+		using sub_pipeline_t = typename internal::sub_pipeline_element<_Index, Pipeline<T>>::type;
 
-		Pipeline<T>& fit(const Eigen::MatrixXd& input)
-		{
-			_estimator.fit(input);
-			return *this;
-		}
-
-		Pipeline<T>& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXd& target)
-		{
-			_estimator.fit(input, target);
-			return *this;
-		}
-
-		Pipeline<T>& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXi& classes)
-		{
-			_estimator.fit(input, classes);
-			return *this;
-		}
-
-		Eigen::MatrixXd transform(const Eigen::MatrixXd& input) const
-		{
-			return _estimator.transform(input);
-		}
-
-		Eigen::MatrixXi classify(const Eigen::MatrixXd& input) const
-		{
-			return _estimator.classify(input);
-		}
-
-		Eigen::MatrixXd predict(const Eigen::MatrixXd& input) const
-		{
-			return _estimator.predict(input);
-		}
-
-		Eigen::VectorXi cluster(const Eigen::MatrixXd& input) const
-		{
-			return _estimator.cluster(input);
-		}
-
-		T& top_estimator() { return _estimator; }
+		T& top_estimator() { return *this; }
 
 		template<size_t Index>
-		inline pipeline_t& get()
+		inline sub_pipeline_t<Index>& get()
 		{
-			typedef sub_pipeline_t<Index> _;
-			return *this;
+			return static_cast<sub_pipeline_t<Index>&>(*this);
 		}
 
 		template<size_t Index>
-		inline T& get_model()
+		inline typename pipeline_model_t<Index>& get_model()
 		{
-			typedef sub_pipeline_t<Index> _;
-			return _estimator;
+			return static_cast<sub_pipeline_t<Index>&>(*this).top_estimator();
 		}
 
 	protected:
-		T& _estimator;
+		
 	};
 
 	template <class T, class... Ts>
@@ -137,29 +96,27 @@ namespace models {
 	public:
 		explicit Pipeline(T& estimator, Ts & ... following) : Pipeline<Ts...>(following...), _estimator(estimator) {}
 
-		using pipeline_t = typename Pipeline<T, Ts...>;
+		template<size_t _Index>
+		using pipeline_model_t = typename internal::sub_pipeline_element<_Index, Pipeline<T, Ts...>>::model_type;
 
 		template<size_t _Index>
-		using pipeline_model_t = typename sub_pipeline_element<_Index, pipeline_t>::model_type;
+		using sub_pipeline_t = typename internal::sub_pipeline_element<_Index, Pipeline<T, Ts...>>::type;
 
-		template<size_t _Index>
-		using sub_pipeline_t = typename sub_pipeline_element<_Index, pipeline_t>::type;
-
-		pipeline_t& fit(const Eigen::MatrixXd& input)
+		Pipeline<T, Ts...>& fit(const Eigen::MatrixXd& input, bool cold_start = true)
 		{
-			sub_pipeline_t<1>::fit(_estimator.fit_transform(input));
+			sub_pipeline_t<1>::fit(_estimator.fit_transform(input, cold_start), cold_start);
 			return *this;
 		}
 
-		pipeline_t& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXd& target)
+		Pipeline<T, Ts...>& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXd& target, bool cold_start = true)
 		{
-			sub_pipeline_t<1>::fit(_estimator.fit_transform(input, target), target);
+			sub_pipeline_t<1>::fit(_estimator.fit_transform(input, target, cold_start), target, cold_start);
 			return *this;
 		}
 
-		pipeline_t& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXi& classes)
+		Pipeline<T, Ts...>& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXi& classes, bool cold_start = true)
 		{
-			sub_pipeline_t<1>::fit(_estimator.fit_transform(input, classes), classes);
+			sub_pipeline_t<1>::fit(_estimator.fit_transform(input, classes, cold_start), classes, cold_start);
 			return *this;
 		}
 
@@ -196,30 +153,6 @@ namespace models {
 		{
 			return static_cast<sub_pipeline_t<Index>&>(*this).top_estimator();
 		}
-
-		//template<size_t _Index>
-		//inline constexpr const typename sub_pipeline_element<_Index, Pipeline<T, Ts...> >::type&
-		//get() const
-		//{	// get const reference to _Index subpipeline of pipeline
-		//	typedef typename sub_pipeline_element<_Index, Pipeline<_Types...> >::type _Ptype;
-		//	return static_cast<_Ptype>(&*this);
-		//}
-
-		/*template <size_t k, class... Ts>
-		typename std::enable_if<
-			k == 0, typename pipiline_type_holder<0, Pipeline<Ts...>>::type&>::type
-			get() {
-			return *this;
-		}
-
-		template <size_t k, class T, class... Ts>
-		typename std::enable_if<
-			k != 0, typename elem_type_holder<k, tuple<T, Ts...>>::type&>::type
-			get(tuple<T, Ts...>& t) {
-			tuple<Ts...>& base = t;
-			return get<k - 1>(base);
-		}*/
-
 	protected:
 		T& _estimator;
 	};

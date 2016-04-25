@@ -21,7 +21,7 @@ namespace regressors {
 		explicit RidgeRegression(double regularization, Solver&& solver, bool fit_intercept = true) : LinearRegressorModel(fit_intercept),
 			_regularization(regularization), _solver(solver) {}
 
-		RidgeRegression& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXd& target) {
+		RidgeRegression& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXd& target, bool = true) {
 			Eigen::MatrixXd input_prime(input.rows() + (_fit_intercept ? 1 : 0), input.cols());
 			input_prime.topRows(input.rows()) << input;
 			Eigen::MatrixXd reg = Eigen::MatrixXd::Identity(input_prime.rows(), input_prime.rows()) * _regularization;

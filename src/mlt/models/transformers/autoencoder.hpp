@@ -26,7 +26,7 @@ namespace transformers {
 
 		Eigen::MatrixXd transform(const Eigen::MatrixXd& input) const {
 			assert(this->_fitted);
-			return this->_compute_activation(, );
+			return this->_compute_activation(input, this->_coefficients, this->_intercepts);
 		}
 
 		Autoencoder& fit(const Eigen::Ref<const Eigen::MatrixXd>& input, bool cold_start = true) {

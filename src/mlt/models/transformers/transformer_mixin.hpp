@@ -9,28 +9,28 @@ namespace transformers {
 	template <class Transformer>
 	class TransformerMixin {
 	public:
-		Transformer& fit(const Eigen::MatrixXd& input) {
-			return static_cast<Transformer&>(*this).fit(input);
+		Transformer& fit(const Eigen::MatrixXd& input, bool cold_start = true) {
+			return static_cast<Transformer&>(*this).fit(input, cold_start);
 		}
 
-		Transformer& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXd&) {
-			return static_cast<Transformer&>(*this).fit(input);
+		Transformer& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXd&, bool cold_start = true) {
+			return static_cast<Transformer&>(*this).fit(inputcold_start);
 		}
 
-		Transformer& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXi&) {
-			return static_cast<Transformer&>(*this).fit(input);
+		Transformer& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXi&, bool cold_start = true) {
+			return static_cast<Transformer&>(*this).fit(inputcold_start);
 		}
 
-		Eigen::MatrixXd fit_transform(const Eigen::MatrixXd& input) {
-			return static_cast<Transformer&>(*this).fit(input).transform(input);
+		Eigen::MatrixXd fit_transform(const Eigen::MatrixXd& input, bool cold_start = true) {
+			return static_cast<Transformer&>(*this).fit(input, cold_start).transform(input);
 		}
 
-		Eigen::MatrixXd fit_transform(const Eigen::MatrixXd& input, const Eigen::MatrixXd&) {
-			return static_cast<Transformer&>(*this).fit(input).transform(input);
+		Eigen::MatrixXd fit_transform(const Eigen::MatrixXd& input, const Eigen::MatrixXd&, bool cold_start = true) {
+			return static_cast<Transformer&>(*this).fit(input, cold_start).transform(input);
 		}
 
-		Eigen::MatrixXd fit_transform(const Eigen::MatrixXd& input, const Eigen::MatrixXi&) {
-			return static_cast<Transformer&>(*this).fit(input).transform(input);
+		Eigen::MatrixXd fit_transform(const Eigen::MatrixXd& input, const Eigen::MatrixXi&, bool cold_start = true) {
+			return static_cast<Transformer&>(*this).fit(input, cold_start).transform(input);
 		}
 	};
 }
