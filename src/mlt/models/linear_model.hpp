@@ -4,7 +4,7 @@
 #include <Eigen/Core>
 
 #include "base_model.hpp"
-#include <iostream>
+#include "../utils/linear_algebra.hpp"
 
 namespace mlt {
 namespace models {
@@ -29,17 +29,9 @@ namespace models {
 		Eigen::MatrixXd _apply_linear_transformation(const Eigen::Ref<const Eigen::MatrixXd>& input) const {
 			assert(_fitted);
 			if (_fit_intercept) {
-				return _apply_linear_transformation(input, _coefficients.leftCols(_coefficients.cols() - 1), _coefficients.rightCols<1>());
+				return utils::linear_algebra::linear_transformation(input, _coefficients.leftCols(_coefficients.cols() - 1), _coefficients.rightCols<1>());
 			}
-			return _apply_linear_transformation(input, _coefficients);
-		}
-
-		static Eigen::MatrixXd _apply_linear_transformation(const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& coefficients) {
-			return coefficients * input;
-		}
-
-		static Eigen::MatrixXd _apply_linear_transformation(const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& coefficients, const Eigen::Ref<const Eigen::VectorXd>& intercepts) {
-			return (coefficients * input).colwise() + intercepts;
+			return utils::linear_algebra::linear_transformation(input, _coefficients);
 		}
 
 		const bool _fit_intercept;

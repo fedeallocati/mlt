@@ -38,12 +38,12 @@ void test_optimizable_linear_model(Loss&& loss) {
 	output = (output.array() > 0.0).cast<double>();
 	output.row(1) = 1 - output.row(0).array();
 
-	mlt::utils::optimizers::StochasticGradientDescent<> sgd;
+	/*mlt::utils::optimizers::StochasticGradientDescent<> sgd;
 	mlt::models::OptimizableLinearModel<Loss, mlt::utils::optimizers::StochasticGradientDescent<>> model(loss, sgd, 0, false);
 	eval_numerical_gradient(model, Eigen::MatrixXd::Random(2, 3) * 0.05, input, output);
 
 	mlt::models::OptimizableLinearModel<Loss, mlt::utils::optimizers::StochasticGradientDescent<>> model2(loss, sgd, 0, true);
-	eval_numerical_gradient(model2, Eigen::MatrixXd::Random(2, 4) * 0.05, input, output);
+	eval_numerical_gradient(model2, Eigen::MatrixXd::Random(2, 4) * 0.05, input, output);*/
 }
 
 void test_optimizable_linear_models() {
@@ -87,7 +87,7 @@ void lr_examples() {
 	std::cout << ridge_regressor.intercepts() << std::endl;
 	std::cout << ridge_regressor.predict(X2.col(0)) << std::endl;
 
-	mlt::utils::optimizers::StochasticGradientDescent<> grad_descent(10, 2000, 0.001, 1);
+	/*mlt::utils::optimizers::StochasticGradientDescent<> grad_descent(10, 2000, 0.001, 1);
 	mlt::utils::loss_functions::SquaredLoss loss;
 	mlt::models::OptimizableLinearModel<mlt::utils::loss_functions::SquaredLoss, mlt::utils::optimizers::StochasticGradientDescent<>> sgd(loss, grad_descent, 0.5, true);
 
@@ -99,5 +99,5 @@ void lr_examples() {
 	std::cout << sgd.predict(X2.col(0)) << std::endl;
 
 	std::cout << "loss with closed form: " << sgd.loss(ridge_regressor.coefficients(), X2, Y2) << std::endl;
-	std::cout << "loss with SGD: " << sgd.loss(sgd.coefficients(), X2, Y2) << std::endl;
+	std::cout << "loss with SGD: " << sgd.loss(sgd.coefficients(), X2, Y2) << std::endl;*/
 }
