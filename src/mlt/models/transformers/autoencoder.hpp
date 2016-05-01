@@ -9,24 +9,20 @@
 namespace mlt {
 namespace models {
 namespace transformers {
-	template <class Activation, class Optimizer>
-	class Autoencoder : public BaseModel, public TransformerMixin<Autoencoder<Activation, Optimizer>> {
+	template <class HiddenActivation, class ReconstructionActivation, class Optimizer>
+	class Autoencoder : public BaseModel, public TransformerMixin<Autoencoder<HiddenActivation, ReconstructionActivation, Optimizer>> {
 	public:
-		explicit Autoencoder(int hidden_units, const Activation& activation, const Optimizer& optimizer, double regularization) :
-			_hidden_units(hidden_units), _activation(activation), _optimizer(optimizer), _regularization(regularization) {}
-
-		explicit Autoencoder(int hidden_units, Activation&& activation, const Optimizer& optimizer, double regularization) :
-			_hidden_units(hidden_units), _activation(activation), _optimizer(optimizer), _regularization(regularization) {}
-
-		explicit Autoencoder(int hidden_units, const Activation& activation, Optimizer&& optimizer, double regularization) :
-			_hidden_units(hidden_units), _activation(activation), _optimizer(optimizer), _regularization(regularization) {}
-
-		explicit Autoencoder(int hidden_units, Activation&& activation, Optimizer&& optimizer, double regularization) :
-			_hidden_units(hidden_units), _activation(activation), _optimizer(optimizer), _regularization(regularization) {}
+		template <typename H, typename R, typename O,
+			class = std::enable_if<std::is_same<std::decay_t<H>, HiddenActivation>::value 
+			&& std::is_convertible<std::decay_t<R>, ReconstructionActivation>::value
+			&& std::is_convertible<std::decay_t<O>, Optimizer>::value>>
+		explicit Autoencoder(int hidden_units, H&& hidden_activation, R&& reconstruction_activation, O&& optimizer, double regularization) :
+			_hidden_units(hidden_units), _hidden_activation(std::forward<H>(hidden_activation)), _reconstruction_activation(std::forward<R>(reconstruction_activation)),
+			_optimizer(std::forward<O>(optimizer)), _regularization(regularization) {}
 
 		Eigen::MatrixXd transform(const Eigen::MatrixXd& input) const {
 			assert(this->_fitted);
-			return this->_compute_activation(input, this->_coefficients, this->_intercepts);
+			return this->_compute_hidden_activation(input, this->_coefficients, this->_intercepts);
 		}
 
 		Autoencoder& fit(const Eigen::Ref<const Eigen::MatrixXd>& input, bool cold_start = true) {
@@ -45,15 +41,15 @@ namespace transformers {
 			return *this;
 		}
 
-		using TransformerMixin<Autoencoder>::fit;
+		using TransformerMixin<Autoencoder<HiddenActivation, ReconstructionActivation, Optimizer>>::fit;
 
 		double loss(const Eigen::Ref<const Eigen::MatrixXd>& coeffs, const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& target) const {
 			auto coefficients = coeffs.block(0, 0, coeffs.rows() - 1, coeffs.cols() - 1);
 			auto hidden_intercepts = coeffs.rightCols<1>().head(coeffs.rows() - 1);
 			auto output_intercepts = coeffs.bottomRows<1>().head(coeffs.cols() - 1).transpose();
 
-			Eigen::MatrixXd hidden_activation = _compute_activation(input, coefficients, hidden_intercepts);
-			Eigen::MatrixXd reconstruction_activation = _compute_activation(hidden_activation, coefficients.transpose(), output_intercepts);
+			Eigen::MatrixXd hidden_activation = _compute_hidden_activation(input, coefficients, hidden_intercepts);
+			Eigen::MatrixXd reconstruction_activation = _compute_reconstruction_activation(hidden_activation, coefficients.transpose(), output_intercepts);
 			return ((reconstruction_activation - target).array().pow(2).sum() / (2 * input.cols())) + _regularization * coefficients.array().pow(2).sum();
 		}
 
@@ -63,14 +59,14 @@ namespace transformers {
 			auto output_intercepts = coeffs.bottomRows<1>().head(coeffs.cols() - 1).transpose();
 			
 			Eigen::MatrixXd hidden_z = (coefficients * input).colwise() + hidden_intercepts;
-			Eigen::MatrixXd hidden_activation = _activation.compute(hidden_z);
+			Eigen::MatrixXd hidden_activation = _hidden_activation.compute(hidden_z);
 			Eigen::MatrixXd reconstruction_z = (coefficients.transpose() * hidden_activation).colwise() + output_intercepts;
-			Eigen::MatrixXd reconstruction_activation = _activation.compute(reconstruction_z);
+			Eigen::MatrixXd reconstruction_activation = _reconstruction_activation.compute(reconstruction_z);
 
 			Eigen::MatrixXd recontstruction_error = (reconstruction_activation - target) / input.cols();
 
-			Eigen::MatrixXd reconstruction_delta = recontstruction_error.cwiseProduct(_activation.gradient(reconstruction_z));
-			Eigen::MatrixXd hidden_delta = (coefficients * reconstruction_delta).cwiseProduct(_activation.gradient(hidden_z));
+			Eigen::MatrixXd reconstruction_delta = recontstruction_error.cwiseProduct(_reconstruction_activation.gradient(reconstruction_z));
+			Eigen::MatrixXd hidden_delta = (coefficients * reconstruction_delta).cwiseProduct(_hidden_activation.gradient(hidden_z));
 
 			Eigen::MatrixXd gradient = Eigen::MatrixXd::Zero(coeffs.rows(), coeffs.cols());
 			// Gradients of coefficients.transpose() and output_intercepts
@@ -91,14 +87,14 @@ namespace transformers {
 			auto output_intercepts = coeffs.bottomRows<1>().head(coeffs.cols() - 1).transpose();
 
 			Eigen::MatrixXd hidden_z = (coefficients * input).colwise() + hidden_intercepts;
-			Eigen::MatrixXd hidden_activation = _activation.compute(hidden_z);
+			Eigen::MatrixXd hidden_activation = _hidden_activation.compute(hidden_z);
 			Eigen::MatrixXd reconstruction_z = (coefficients.transpose() * hidden_activation).colwise() + output_intercepts;
-			Eigen::MatrixXd reconstruction_activation = _activation.compute(reconstruction_z);
+			Eigen::MatrixXd reconstruction_activation = _reconstruction_activation.compute(reconstruction_z);
 
 			Eigen::MatrixXd recontstruction_error = (reconstruction_activation - target) / input.cols();
 
-			Eigen::MatrixXd reconstruction_delta = recontstruction_error.cwiseProduct(_activation.gradient(reconstruction_z));
-			Eigen::MatrixXd hidden_delta = (coefficients * reconstruction_delta).cwiseProduct(_activation.gradient(hidden_z));
+			Eigen::MatrixXd reconstruction_delta = recontstruction_error.cwiseProduct(_reconstruction_activation.gradient(reconstruction_z));
+			Eigen::MatrixXd hidden_delta = (coefficients * reconstruction_delta).cwiseProduct(_hidden_activation.gradient(hidden_z));
 
 			double loss = ((reconstruction_activation - target).array().pow(2).sum() / (2 * input.cols())) + _regularization * (coeffs.block(0, 0, coeffs.rows() - 1, coeffs.cols() - 1).array().pow(2).sum());
 			Eigen::MatrixXd gradient = Eigen::MatrixXd::Zero(coeffs.rows(), coeffs.cols());
@@ -115,12 +111,17 @@ namespace transformers {
 		}
 
 	protected:
-		Eigen::MatrixXd _compute_activation(const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& coefficients, const Eigen::Ref<const Eigen::VectorXd>& intercepts) const {
-			return _activation.compute((coefficients * input).colwise() + intercepts);
+		Eigen::MatrixXd _compute_hidden_activation(const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& coefficients, const Eigen::Ref<const Eigen::VectorXd>& intercepts) const {
+			return _hidden_activation.compute((coefficients * input).colwise() + intercepts);
+		}
+
+		Eigen::MatrixXd _compute_reconstruction_activation(const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& coefficients, const Eigen::Ref<const Eigen::VectorXd>& intercepts) const {
+			return _reconstruction_activation.compute((coefficients * input).colwise() + intercepts);
 		}
 
 		int _hidden_units;
-		Activation _activation;
+		HiddenActivation _hidden_activation;
+		ReconstructionActivation _reconstruction_activation;
 		Optimizer _optimizer;
 		double _regularization;
 		bool _fit_intercept;

@@ -5,13 +5,11 @@
 #include <Eigen/SVD>
 
 #include "../base_model.hpp"
-#include "transformer_mixin.hpp"
 
 namespace mlt {
 namespace models {
 namespace transformers {
-	template <typename Concrete>
-	class PrincipalComponentsAnalysisImpl : public BaseModel, public TransformerMixin<Concrete> {
+	class PrincipalComponentsAnalysisImpl : public BaseModel {
 	public:
 		int components_size() const { assert(this->_fitted); return this->_components_size; }
 
@@ -21,7 +19,7 @@ namespace transformers {
 
 		double noise_variance() const { assert(this->_fitted); return this->_noise_variance; }
 
-		Eigen::MatrixXd transform(const Eigen::MatrixXd& input) const {
+		Eigen::MatrixXd transform(const Eigen::Ref<const Eigen::MatrixXd>& input) const {
 			assert(this->_fitted);
 
 			if (this->_whiten) {
@@ -32,7 +30,7 @@ namespace transformers {
 			return this->_components.transpose() * (input.colwise() - this->_mean);
 		}
 
-		Eigen::MatrixXd inverse_transform(const Eigen::MatrixXd& input) const {
+		Eigen::MatrixXd inverse_transform(const Eigen::Ref<const Eigen::MatrixXd>& input) const {
 			assert(this->_fitted);
 
 			if (this->_whiten) {
@@ -41,10 +39,16 @@ namespace transformers {
 
 			return (this->_components * input).colwise() + this->_mean;
 		}
+	protected:
+		explicit PrincipalComponentsAnalysisImpl(int components_size, bool whiten = false) : _components_size(components_size), _whiten(whiten) {}
 
-		using TransformerMixin<Concrete>::fit;
+		explicit PrincipalComponentsAnalysisImpl(double variance_to_retain, bool whiten = false) : _variance_to_retain(variance_to_retain), _whiten(whiten) {
+			assert(variance_to_retain > 0 && variance_to_retain <= 1);
+		}
 
-		Concrete& fit(const Eigen::MatrixXd& input, bool = true) {
+		explicit PrincipalComponentsAnalysisImpl(bool whiten = false) : _whiten(whiten) {}
+
+		void _fit(const Eigen::Ref<const Eigen::MatrixXd>& input, bool = true) {
 			assert(this->_components_size == -1 || this->_components_size <= input.cols());
 
 			this->_mean = input.rowwise().mean();
@@ -86,18 +90,7 @@ namespace transformers {
 			this->_fitted = true;
 			this->_input_size = this->_components.rows();
 			this->_output_size = this->_components.cols();
-
-			return static_cast<Concrete&>(*this);
 		}
-
-	protected:
-		explicit PrincipalComponentsAnalysisImpl(int components_size, bool whiten = false) : _components_size(components_size), _whiten(whiten) {}
-
-		explicit PrincipalComponentsAnalysisImpl(double variance_to_retain, bool whiten = false) : _variance_to_retain(variance_to_retain), _whiten(whiten) {
-			assert(variance_to_retain > 0 && variance_to_retain <= 1);
-		}
-
-		explicit PrincipalComponentsAnalysisImpl(bool whiten = false) : _whiten(whiten) {}
 
 		int _components_size = -1;
 		double _variance_to_retain = -1;
