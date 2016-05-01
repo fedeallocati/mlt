@@ -5,6 +5,7 @@
 
 #include "../base_model.hpp"
 #include "transformer_mixin.hpp"
+#include "../implementations/autoencoder.hpp"
 
 namespace mlt {
 namespace models {
@@ -46,36 +47,24 @@ namespace transformers {
 		double loss(const Eigen::Ref<const Eigen::MatrixXd>& coeffs, const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& target) const {
 			auto coefficients = coeffs.block(0, 0, coeffs.rows() - 1, coeffs.cols() - 1);
 			auto hidden_intercepts = coeffs.rightCols<1>().head(coeffs.rows() - 1);
-			auto output_intercepts = coeffs.bottomRows<1>().head(coeffs.cols() - 1).transpose();
+			auto reconstruction_intercepts = coeffs.bottomRows<1>().head(coeffs.cols() - 1).transpose();
 
-			Eigen::MatrixXd hidden_activation = _compute_hidden_activation(input, coefficients, hidden_intercepts);
-			Eigen::MatrixXd reconstruction_activation = _compute_reconstruction_activation(hidden_activation, coefficients.transpose(), output_intercepts);
-			return ((reconstruction_activation - target).array().pow(2).sum() / (2 * input.cols())) + _regularization * coefficients.array().pow(2).sum();
+			return implementations::autoencoder::loss(_hidden_activation, _reconstruction_activation, coefficients, hidden_intercepts, coefficients.transpose(), reconstruction_intercepts, input, target) + _regularization * coefficients.array().pow(2).sum();
 		}
 
-		Eigen::MatrixXd gradient(const Eigen::Ref<const Eigen::MatrixXd>& coeffs, const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& target) const {	
+		Eigen::MatrixXd gradient(const Eigen::Ref<const Eigen::MatrixXd>& coeffs, const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& target) const {
 			auto coefficients = coeffs.block(0, 0, coeffs.rows() - 1, coeffs.cols() - 1);
 			auto hidden_intercepts = coeffs.rightCols<1>().head(coeffs.rows() - 1);
-			auto output_intercepts = coeffs.bottomRows<1>().head(coeffs.cols() - 1).transpose();
-			
-			Eigen::MatrixXd hidden_z = (coefficients * input).colwise() + hidden_intercepts;
-			Eigen::MatrixXd hidden_activation = _hidden_activation.compute(hidden_z);
-			Eigen::MatrixXd reconstruction_z = (coefficients.transpose() * hidden_activation).colwise() + output_intercepts;
-			Eigen::MatrixXd reconstruction_activation = _reconstruction_activation.compute(reconstruction_z);
+			auto reconstruction_intercepts = coeffs.bottomRows<1>().head(coeffs.cols() - 1).transpose();
 
-			Eigen::MatrixXd recontstruction_error = (reconstruction_activation - target) / input.cols();
-
-			Eigen::MatrixXd reconstruction_delta = recontstruction_error.cwiseProduct(_reconstruction_activation.gradient(reconstruction_z));
-			Eigen::MatrixXd hidden_delta = (coefficients * reconstruction_delta).cwiseProduct(_hidden_activation.gradient(hidden_z));
+			Eigen::MatrixXd coeff_grad, hid_inter_grad, coeff_transp_grad, rec_inter_grad;
+			std::tie(coeff_grad, hid_inter_grad, coeff_transp_grad, rec_inter_grad) = implementations::autoencoder::gradient(_hidden_activation, _reconstruction_activation, coefficients, hidden_intercepts, coefficients.transpose(), reconstruction_intercepts, input, target);
 
 			Eigen::MatrixXd gradient = Eigen::MatrixXd::Zero(coeffs.rows(), coeffs.cols());
-			// Gradients of coefficients.transpose() and output_intercepts
-			gradient.block(0, 0, coeffs.rows() - 1, coeffs.cols() - 1) = hidden_activation * reconstruction_delta.transpose();
-			gradient.bottomRows<1>().head(coeffs.cols() - 1) = reconstruction_delta.rowwise().sum().transpose();
-			// Gradients of coefficients and hidden_intercepts
-			gradient.block(0, 0, coeffs.rows() - 1, coeffs.cols() - 1) += hidden_delta * input.transpose();
-			gradient.rightCols<1>().head(coeffs.rows() - 1) = hidden_delta.rowwise().sum();
-
+			gradient.block(0, 0, coeffs.rows() - 1, coeffs.cols() - 1) = coeff_grad;
+			gradient.rightCols<1>().head(coeffs.rows() - 1) = hid_inter_grad;
+			gradient.block(0, 0, coeffs.rows() - 1, coeffs.cols() - 1) += coeff_transp_grad.transpose();
+			gradient.bottomRows<1>().head(coeffs.cols() - 1) = rec_inter_grad.transpose();
 			gradient.block(0, 0, coeffs.rows() - 1, coeffs.cols() - 1) += _regularization * 2 * coefficients;
 
 			return gradient;
@@ -84,30 +73,20 @@ namespace transformers {
 		std::tuple<double, Eigen::MatrixXd> loss_and_gradient(const Eigen::Ref<const Eigen::MatrixXd>& coeffs, const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& target) const {
 			auto coefficients = coeffs.block(0, 0, coeffs.rows() - 1, coeffs.cols() - 1);
 			auto hidden_intercepts = coeffs.rightCols<1>().head(coeffs.rows() - 1);
-			auto output_intercepts = coeffs.bottomRows<1>().head(coeffs.cols() - 1).transpose();
+			auto reconstruction_intercepts = coeffs.bottomRows<1>().head(coeffs.cols() - 1).transpose();
 
-			Eigen::MatrixXd hidden_z = (coefficients * input).colwise() + hidden_intercepts;
-			Eigen::MatrixXd hidden_activation = _hidden_activation.compute(hidden_z);
-			Eigen::MatrixXd reconstruction_z = (coefficients.transpose() * hidden_activation).colwise() + output_intercepts;
-			Eigen::MatrixXd reconstruction_activation = _reconstruction_activation.compute(reconstruction_z);
+			double loss;
+			Eigen::MatrixXd coeff_grad, hid_inter_grad, coeff_transp_grad, rec_inter_grad;
+			std::tie(loss, coeff_grad, hid_inter_grad, coeff_transp_grad, rec_inter_grad) = implementations::autoencoder::loss_and_gradient(_hidden_activation, _reconstruction_activation, coefficients, hidden_intercepts, coefficients.transpose(), reconstruction_intercepts, input, target);
 
-			Eigen::MatrixXd recontstruction_error = (reconstruction_activation - target) / input.cols();
-
-			Eigen::MatrixXd reconstruction_delta = recontstruction_error.cwiseProduct(_reconstruction_activation.gradient(reconstruction_z));
-			Eigen::MatrixXd hidden_delta = (coefficients * reconstruction_delta).cwiseProduct(_hidden_activation.gradient(hidden_z));
-
-			double loss = ((reconstruction_activation - target).array().pow(2).sum() / (2 * input.cols())) + _regularization * (coeffs.block(0, 0, coeffs.rows() - 1, coeffs.cols() - 1).array().pow(2).sum());
 			Eigen::MatrixXd gradient = Eigen::MatrixXd::Zero(coeffs.rows(), coeffs.cols());
-			// Gradients of coefficients.transpose() and output_intercepts
-			gradient.block(0, 0, coeffs.rows() - 1, coeffs.cols() - 1) = hidden_activation * reconstruction_delta.transpose();
-			gradient.bottomRows<1>().head(coeffs.cols() - 1) = reconstruction_delta.rowwise().sum().transpose();
-			// Gradients of coefficients and hidden_intercepts
-			gradient.block(0, 0, coeffs.rows() - 1, coeffs.cols() - 1) += hidden_delta * input.transpose();
-			gradient.rightCols<1>().head(coeffs.rows() - 1) = hidden_delta.rowwise().sum();
-
+			gradient.block(0, 0, coeffs.rows() - 1, coeffs.cols() - 1) = coeff_grad;
+			gradient.rightCols<1>().head(coeffs.rows() - 1) = hid_inter_grad;
+			gradient.block(0, 0, coeffs.rows() - 1, coeffs.cols() - 1) += coeff_transp_grad.transpose();
+			gradient.bottomRows<1>().head(coeffs.cols() - 1) = rec_inter_grad.transpose();
 			gradient.block(0, 0, coeffs.rows() - 1, coeffs.cols() - 1) += _regularization * 2 * coefficients;
 
-			return { loss, gradient };
+			return{ loss, gradient };
 		}
 
 	protected:
