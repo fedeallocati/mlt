@@ -12,14 +12,14 @@ namespace mlt {
 namespace models {
 namespace transformers {
 	template <class HiddenActivation, class ReconstructionActivation, class Optimizer>
-	class SparseAutoencoder : public BaseModel, public TransformerMixin<Autoencoder<HiddenActivation, ReconstructionActivation, Optimizer>> {
+	class SparseAutoencoder : public BaseModel, public TransformerMixin<SparseAutoencoder<HiddenActivation, ReconstructionActivation, Optimizer>> {
 	public:
 		template <typename H, typename R, typename O,
 			class = std::enable_if<std::is_convertible<std::decay_t<H>, HiddenActivation>::value
 			&& std::is_convertible<std::decay_t<R>, ReconstructionActivation>::value
 			&& std::is_convertible<std::decay_t<O>, Optimizer>::value>>
-		explicit SparsAutoencoder(int hidden_units, H&& hidden_activation, R&& reconstruction_activation, O&& optimizer, double regularization,
-			double sparsity, double sparsity_weight) : _hidden_units(hidden_units), _hidden_activation(std::forward<H>(hidden_activation)),
+		explicit SparseAutoencoder(int hidden_units, H&& hidden_activation, R&& reconstruction_activation, O&& optimizer, double regularization,
+		double sparsity, double sparsity_weight) : _hidden_units(hidden_units), _hidden_activation(std::forward<H>(hidden_activation)),
 			_reconstruction_activation(std::forward<R>(reconstruction_activation)), _optimizer(std::forward<O>(optimizer)), _regularization(regularization),
 			_sparsity(sparsity), _sparsity_weight(sparsity_weight) {}
 
@@ -47,9 +47,9 @@ namespace transformers {
 			Eigen::VectorXd coeffs = _optimizer.run(*this, input, input, init, cold_start);
 
 			this->_hidden_weights = utils::eigen::unravel(coeffs.block(0, 0, _hidden_units * input.rows(), 1), _hidden_units, input.rows());
-			this->_hidden_intercepts = coeffs.block(0, _hidden_units * input.rows(), _hidden_units, 1);
-			this->_reconstruction_weights = utils::eigen::unravel(coeffs.block(0, 0, _hidden_units * input.rows() + _hidden_units, 1), input.rows(), _hidden_units);
-			this->_reconstruction_intercepts = coeffs.block(0, _hidden_units * input.rows() + _hidden_units + input.rows() * _hidden_units, input.rows(), 1);
+			this->_hidden_intercepts = coeffs.block(_hidden_units * input.rows(), 0, _hidden_units, 1);
+			this->_reconstruction_weights = utils::eigen::unravel(coeffs.block(_hidden_units * input.rows() + _hidden_units, 0, _hidden_units * input.rows(), 1), input.rows(), _hidden_units);
+			this->_reconstruction_intercepts = coeffs.block(_hidden_units * input.rows() + _hidden_units + input.rows() * _hidden_units, 0, input.rows(), 1);
 
 			this->_fitted = true;
 			this->_input_size = input.rows();
