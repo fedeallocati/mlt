@@ -1,5 +1,5 @@
-#ifndef MLT_MODELS_TRANSFORMERS_AUTOENCODER_HPP
-#define MLT_MODELS_TRANSFORMERS_AUTOENCODER_HPP
+#ifndef MLT_MODELS_TRANSFORMERS_SPARSE_AUTOENCODER_HPP
+#define MLT_MODELS_TRANSFORMERS_SPARSE_AUTOENCODER_HPP
 
 #include <Eigen/Core>
 
@@ -12,22 +12,23 @@ namespace mlt {
 namespace models {
 namespace transformers {
 	template <class HiddenActivation, class ReconstructionActivation, class Optimizer>
-	class Autoencoder : public BaseModel, public TransformerMixin<Autoencoder<HiddenActivation, ReconstructionActivation, Optimizer>> {
+	class SparseAutoencoder : public BaseModel, public TransformerMixin<Autoencoder<HiddenActivation, ReconstructionActivation, Optimizer>> {
 	public:
 		template <typename H, typename R, typename O,
 			class = std::enable_if<std::is_convertible<std::decay_t<H>, HiddenActivation>::value
 			&& std::is_convertible<std::decay_t<R>, ReconstructionActivation>::value
 			&& std::is_convertible<std::decay_t<O>, Optimizer>::value>>
-		explicit Autoencoder(int hidden_units, H&& hidden_activation, R&& reconstruction_activation, O&& optimizer, double regularization) :
-			_hidden_units(hidden_units), _hidden_activation(std::forward<H>(hidden_activation)), _reconstruction_activation(std::forward<R>(reconstruction_activation)),
-			_optimizer(std::forward<O>(optimizer)), _regularization(regularization) {}
+		explicit SparsAutoencoder(int hidden_units, H&& hidden_activation, R&& reconstruction_activation, O&& optimizer, double regularization,
+			double sparsity, double sparsity_weight) : _hidden_units(hidden_units), _hidden_activation(std::forward<H>(hidden_activation)),
+			_reconstruction_activation(std::forward<R>(reconstruction_activation)), _optimizer(std::forward<O>(optimizer)), _regularization(regularization),
+			_sparsity(sparsity), _sparsity_weight(sparsity_weight) {}
 
 		Eigen::MatrixXd transform(const Eigen::MatrixXd& input) const {
 			assert(this->_fitted);
 			return _hidden_activation.compute((this->_weights * input).colwise() + this->_hidden_intercepts);
 		}
 
-		Autoencoder& fit(const Eigen::Ref<const Eigen::MatrixXd>& input, bool cold_start = true) {
+		SparseAutoencoder& fit(const Eigen::Ref<const Eigen::MatrixXd>& input, bool cold_start = true) {
 			Eigen::VectorXd init(_hidden_units * input.rows() + _hidden_units + input.rows() * _hidden_units + input.rows());
 
 			if (this->_fitted && !cold_start) {
@@ -46,9 +47,9 @@ namespace transformers {
 			Eigen::VectorXd coeffs = _optimizer.run(*this, input, input, init, cold_start);
 
 			this->_hidden_weights = utils::eigen::unravel(coeffs.block(0, 0, _hidden_units * input.rows(), 1), _hidden_units, input.rows());
-			this->_hidden_intercepts = coeffs.block(_hidden_units * input.rows(), 0, _hidden_units, 1);
-			this->_reconstruction_weights = utils::eigen::unravel(coeffs.block(_hidden_units * input.rows() + _hidden_units, 0, _hidden_units * input.rows(), 1), input.rows(), _hidden_units);
-			this->_reconstruction_intercepts = coeffs.block(_hidden_units * input.rows() + _hidden_units + input.rows() * _hidden_units, 0, input.rows(), 1);
+			this->_hidden_intercepts = coeffs.block(0, _hidden_units * input.rows(), _hidden_units, 1);
+			this->_reconstruction_weights = utils::eigen::unravel(coeffs.block(0, 0, _hidden_units * input.rows() + _hidden_units, 1), input.rows(), _hidden_units);
+			this->_reconstruction_intercepts = coeffs.block(0, _hidden_units * input.rows() + _hidden_units + input.rows() * _hidden_units, input.rows(), 1);
 
 			this->_fitted = true;
 			this->_input_size = input.rows();
@@ -57,7 +58,7 @@ namespace transformers {
 			return *this;
 		}
 
-		using TransformerMixin<Autoencoder<HiddenActivation, ReconstructionActivation, Optimizer>>::fit;
+		using TransformerMixin<SparseAutoencoder<HiddenActivation, ReconstructionActivation, Optimizer>>::fit;
 
 		auto loss(const Eigen::Ref<const Eigen::VectorXd>& coeffs, const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& target) const {
 			auto hidden_weights = utils::eigen::unravel(coeffs.block(0, 0, _hidden_units * input.rows(), 1), _hidden_units, input.rows());
@@ -65,8 +66,8 @@ namespace transformers {
 			auto reconstruction_weights = utils::eigen::unravel(coeffs.block(_hidden_units * input.rows() + _hidden_units, 0, input.rows() * _hidden_units, 1), input.rows(), _hidden_units);
 			auto reconstruction_intercepts = coeffs.block(_hidden_units * input.rows() + _hidden_units + input.rows() * _hidden_units, 0, input.rows(), 1);
 
-			return implementations::autoencoder::loss(_hidden_activation, _reconstruction_activation, hidden_weights, hidden_intercepts,
-				reconstruction_weights, reconstruction_intercepts, this->_regularization, input, target);
+			return implementations::autoencoder::sparse_loss(_hidden_activation, _reconstruction_activation, hidden_weights, hidden_intercepts,
+				reconstruction_weights, reconstruction_intercepts, this->_regularization, this->_sparsity, this->_sparsity_weight, input, target);
 		}
 
 		auto gradient(const Eigen::Ref<const Eigen::VectorXd>& coeffs, const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& target) const {
@@ -78,9 +79,9 @@ namespace transformers {
 			Eigen::MatrixXd hid_weights_grad, rec_weights_grad;
 			Eigen::VectorXd hid_inter_grad, rec_inter_grad;
 
-			std::tie(hid_weights_grad, hid_inter_grad, rec_weights_grad, rec_inter_grad) = implementations::autoencoder::gradient(_hidden_activation,
+			std::tie(hid_weights_grad, hid_inter_grad, rec_weights_grad, rec_inter_grad) = implementations::autoencoder::sparse_gradient(_hidden_activation,
 				_reconstruction_activation, hidden_weights, hidden_intercepts, reconstruction_weights, reconstruction_intercepts, this->_regularization,
-				input, target);
+				this->_sparsity, this->_sparsity_weight, input, target);
 
 			Eigen::VectorXd gradient(coeffs.rows());
 
@@ -105,9 +106,9 @@ namespace transformers {
 			Eigen::MatrixXd hid_weights_grad, rec_weights_grad;
 			Eigen::VectorXd hid_inter_grad, rec_inter_grad;
 
-			std::tie(loss, hid_weights_grad, hid_inter_grad, rec_weights_grad, rec_inter_grad) = implementations::autoencoder::loss_and_gradient(_hidden_activation,
+			std::tie(loss, hid_weights_grad, hid_inter_grad, rec_weights_grad, rec_inter_grad) = implementations::autoencoder::sparse_loss_and_gradient(_hidden_activation,
 				_reconstruction_activation, hidden_weights, hidden_intercepts, reconstruction_weights, reconstruction_intercepts, this->_regularization,
-				input, target);
+				this->_sparsity, this->_sparsity_weight, input, target);
 
 			Eigen::VectorXd gradient(coeffs.rows());
 
@@ -128,6 +129,8 @@ namespace transformers {
 		ReconstructionActivation _reconstruction_activation;
 		Optimizer _optimizer;
 		double _regularization;
+		double _sparsity;
+		double _sparsity_weight;
 
 		Eigen::MatrixXd _hidden_weights;
 		Eigen::VectorXd _hidden_intercepts;
@@ -136,15 +139,15 @@ namespace transformers {
 	};
 
 	template <class HiddenActivation, class ReconstructionActivation, class Optimizer>
-	auto create_autoencoder(int hidden_units, HiddenActivation&& hidden_activation, 
+	auto create_sparse_autoencoder(int hidden_units, HiddenActivation&& hidden_activation,
 	ReconstructionActivation&& reconstruction_activation, Optimizer&& optimizer,
-	double regularization) {
-		return Autoencoder<HiddenActivation, ReconstructionActivation, Optimizer>(
+	double regularization, double sparsity, double sparsity_weight) {
+		return SparseAutoencoder<HiddenActivation, ReconstructionActivation, Optimizer>(
 			hidden_units,
-			std::forward<HiddenActivation>(hidden_activation), 
+			std::forward<HiddenActivation>(hidden_activation),
 			std::forward<ReconstructionActivation>(reconstruction_activation),
 			std::forward<Optimizer>(optimizer),
-			regularization);
+			regularization, sparsity, sparsity_weight);
 	}
 }
 }
