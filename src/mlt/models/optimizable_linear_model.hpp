@@ -7,18 +7,9 @@
 
 namespace mlt {
 namespace models {
-	template <class Concrete, class LinearBase, class Loss, class Optimizer>
+	template <class LinearBase, class Loss, class Optimizer>
 	class OptimizableLinearModel : public LinearBase {
 	public:
-		Concrete& fit(const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& target, bool cold_start = true) {
-			Eigen::MatrixXd init = this->_fitted && !cold_start ?
-				this->coefficients() : 
-				(Eigen::MatrixXd::Random(target.rows(), input.rows() + (this->fit_intercept() ? 1 : 0)) * 0.005);
-
-			this->_set_coefficients(_optimizer.run(*this, input, target, init, cold_start));
-			return static_cast<Concrete&>(*this);
-		}
-
 		double loss(const Eigen::Ref<const Eigen::MatrixXd>& coeffs, const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& target) const {
 			if (this->_fit_intercept) {
 				return _loss.loss(utils::linear_algebra::linear_transformation(input, coeffs.leftCols(coeffs.cols() - 1), coeffs.rightCols<1>()), target) +
@@ -57,9 +48,17 @@ namespace models {
 		}
 
 	protected:
-		template <typename L, typename O, class = std::enable_if<std::is_same<std::decay_t<L>, Loss>::value && std::is_convertible<std::decay_t<O>, Optimizer>::value>>
+		template <class L, class O, class = std::enable_if<std::is_same<std::decay_t<L>, Loss>::value && std::is_convertible<std::decay_t<O>, Optimizer>::value>>
 		explicit OptimizableLinearModel(L&& loss, O&& optimizer, double regularization, bool fit_intercept) :
 			LinearBase(fit_intercept), _loss(std::forward<L>(loss)), _optimizer(std::forward<O>(optimizer)), _regularization(regularization) {}
+
+		void _fit(const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& target, bool cold_start = true) {
+			Eigen::MatrixXd init = this->_fitted && !cold_start ?
+				this->coefficients() :
+				(Eigen::MatrixXd::Random(target.rows(), input.rows() + (this->fit_intercept() ? 1 : 0)) * 0.005);
+
+			this->_set_coefficients(_optimizer.run(*this, input, target, init, cold_start));
+		}
 
 		Loss _loss;
 		Optimizer _optimizer;

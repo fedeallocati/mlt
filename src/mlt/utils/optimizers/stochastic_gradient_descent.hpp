@@ -29,6 +29,7 @@ namespace optimizers {
 
         template <class Model, class TargetType>
 		typename Eigen::MatrixXd run(const Model& model, const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::Matrix<TargetType, Eigen::Dynamic, Eigen::Dynamic>>& target, const Eigen::Ref<const Eigen::MatrixXd>& init, bool cold_start) {
+			assert(input.cols() == target.cols());
             if (cold_start) {
                 _current_learning_rate = _learning_rate;
 				_update_method.restart();
