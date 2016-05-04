@@ -3,22 +3,22 @@
 
 #include <Eigen/Core>
 
-#include "linear_regressor_model.hpp"
+#include "linear_regressor.hpp"
 #include "../../utils/linear_solvers.hpp"
 
 namespace mlt {
 namespace models {
 namespace regressors {
 	template <class Solver = utils::linear_solvers::SVDSolver>
-	class RidgeRegression : public LinearRegressorModel {
+	class RidgeRegression : public LinearRegressor<RidgeRegression<Solver>> {
 	public:
-		explicit RidgeRegression(double regularization, bool fit_intercept = true) : LinearRegressorModel(fit_intercept),
+		explicit RidgeRegression(double regularization, bool fit_intercept = true) : LinearRegressor(fit_intercept),
 			_regularization(regularization), _solver(Solver()) {}
 
-		explicit RidgeRegression(double regularization, const Solver& solver, bool fit_intercept = true) : LinearRegressorModel(fit_intercept),
+		explicit RidgeRegression(double regularization, const Solver& solver, bool fit_intercept = true) : LinearRegressor(fit_intercept),
 			_regularization(regularization), _solver(solver) {}
 
-		explicit RidgeRegression(double regularization, Solver&& solver, bool fit_intercept = true) : LinearRegressorModel(fit_intercept),
+		explicit RidgeRegression(double regularization, Solver&& solver, bool fit_intercept = true) : LinearRegressor(fit_intercept),
 			_regularization(regularization), _solver(solver) {}
 
 		RidgeRegression& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXd& target, bool = true) {
