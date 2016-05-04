@@ -2,7 +2,6 @@
 #define MLT_MODELS_CLASSIFIERS_CLASSIFIER_MIXIN_HPP
 
 #include <Eigen/Core>
-#include <vector>
 
 namespace mlt {
 namespace models {
