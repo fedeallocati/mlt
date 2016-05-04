@@ -17,15 +17,11 @@ namespace classifiers {
 
 			auto scores = this->_apply_linear_transformation(input);
 
-			std::cout << input << std::endl;
-			std::cout << scores << std::endl;
-
 			auto result = Eigen::VectorXi(input.cols());
 			for (size_t col = 0; col < scores.cols(); col++) {
 				int max_row;
 				scores.col(col).maxCoeff(&max_row);
 				result(col) = max_row;
-				std::cout << max_row << std::endl;
 			}
 
 			return result;
