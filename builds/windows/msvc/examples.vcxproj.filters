@@ -24,6 +24,9 @@
     <ClCompile Include="..\..\..\src\examples\linear_regression.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\src\examples\autoencoder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\..\src\mlt\datasets\oil_data.csv" />

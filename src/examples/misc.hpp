@@ -29,6 +29,8 @@ void pca_examples();
 
 void lr_examples();
 
+void autoencoder_examples();
+
 template <typename T>
 typename std::enable_if<std::is_floating_point<T>::value, std::vector<std::vector<T> > >::type parse_csv(std::string file, char separator = ',') {
     std::vector<std::vector<T>> result;
@@ -160,6 +162,12 @@ void eval_numerical_gradient(const Model& model, const Eigen::MatrixXd& params, 
 
 	double fx = model.loss(params, dataset, target);
 	Eigen::MatrixXd adfx = model.gradient(params, dataset, target);
+	double fx2;
+	Eigen::MatrixXd adfx2;
+	std::tie(fx2, adfx2) = model.loss_and_gradient(params, dataset, target);
+
+	std::cout << "Diffs: " << std::abs(fx - fx2) << " " << (adfx - adfx2).squaredNorm() << std::endl;
+
 	Eigen::MatrixXd ndfx = Eigen::MatrixXd::Zero(adfx.rows(), adfx.cols());
 	auto h = 0.000001;
 
