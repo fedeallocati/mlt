@@ -16,12 +16,7 @@ namespace transformers {
 		}
 
 		template <typename Input>
-		Transformer& fit(Input&& input, const Eigen::Ref<const Eigen::MatrixXi>&, bool cold_start = true) {
-			return static_cast<Transformer&>(*this).fit(std::forward<Input>(input), cold_start);
-		}
-
-		template <typename Input>
-		Transformer& fit(Input&& input, const std::vector<int>&, bool cold_start = true) {
+		Transformer& fit(Input&& input, const Eigen::Ref<const Eigen::VectorXi>&, bool cold_start = true) {
 			return static_cast<Transformer&>(*this).fit(std::forward<Input>(input), cold_start);
 		}
 
@@ -31,14 +26,12 @@ namespace transformers {
 		}
 
 		template <typename Input>
-		Eigen::MatrixXd fit_transform(Input&& input, const Eigen::Ref<const Eigen::MatrixXi>&, bool cold_start = true) {
+		Eigen::MatrixXd fit_transform(Input&& input, const Eigen::Ref<const Eigen::VectorXi>&, bool cold_start = true) {
 			return static_cast<Transformer&>(*this).fit(std::forward<Input>(input), cold_start).transform(input);
 		}
 
-		template <typename Input>
-		Eigen::MatrixXd fit_transform(Input&& input, const std::vector<int>&, bool cold_start = true) {
-			return static_cast<Transformer&>(*this).fit(std::forward<Input>(input), cold_start).transform(input);
-		}
+	protected:
+		TransformerMixin() {}
 	};
 }
 }
