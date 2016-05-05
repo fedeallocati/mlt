@@ -8,7 +8,7 @@
 
 #include "../mlt/models/regressors/least_squares_linear_regression.hpp"
 #include "../mlt/models/regressors/ridge_regression.hpp"
-#include "../mlt/models/optimizable_linear_model.hpp"
+#include "../mlt/models/regressors/optimizable_linear_regressor.hpp"
 #include "../mlt/utils/optimizers/stochastic_gradient_descent.hpp"
 #include "../mlt/utils/loss_functions.hpp"
 
@@ -30,26 +30,21 @@ void benchmark_linear_solvers() {
 	std::cout << "Diff: " << (linear_regressor_ldlt.coefficients() - linear_regressor_cg.coefficients()).squaredNorm() << std::endl;
 }
 
-template <typename Loss>
-void test_optimizable_linear_model(Loss&& loss) {
+void test_optimizable_linear_regressors() {
 	auto samples = 100;
 	Eigen::MatrixXd input = Eigen::MatrixXd::Random(3, samples) * 100;
 	Eigen::MatrixXd output = Eigen::MatrixXd::Random(2, samples).array();
 	output = (output.array() > 0.0).cast<double>();
 	output.row(1) = 1 - output.row(0).array();
 
-	/*mlt::utils::optimizers::StochasticGradientDescent<> sgd;
-	mlt::models::OptimizableLinearModel<Loss, mlt::utils::optimizers::StochasticGradientDescent<>> model(loss, sgd, 0, false);
+	mlt::utils::optimizers::StochasticGradientDescent<> sgd;
+	mlt::utils::loss_functions::SquaredLoss loss;
+
+	mlt::models::regressors::OptimizableLinearRegressor<mlt::utils::loss_functions::SquaredLoss, mlt::utils::optimizers::StochasticGradientDescent<>> model(loss, sgd, 0, false);
 	eval_numerical_gradient(model, Eigen::MatrixXd::Random(2, 3) * 0.05, input, output);
 
-	mlt::models::OptimizableLinearModel<Loss, mlt::utils::optimizers::StochasticGradientDescent<>> model2(loss, sgd, 0, true);
-	eval_numerical_gradient(model2, Eigen::MatrixXd::Random(2, 4) * 0.05, input, output);*/
-}
-
-void test_optimizable_linear_models() {
-	test_optimizable_linear_model(mlt::utils::loss_functions::SoftmaxLoss());
-	test_optimizable_linear_model(mlt::utils::loss_functions::SquaredLoss());
-	test_optimizable_linear_model(mlt::utils::loss_functions::HingeLoss(10));
+	mlt::models::regressors::OptimizableLinearRegressor<mlt::utils::loss_functions::SquaredLoss, mlt::utils::optimizers::StochasticGradientDescent<>> model2(loss, sgd, 0, true);
+	eval_numerical_gradient(model2, Eigen::MatrixXd::Random(2, 4) * 0.05, input, output);
 }
 
 void lr_examples() {
@@ -87,17 +82,17 @@ void lr_examples() {
 	std::cout << ridge_regressor.intercepts() << std::endl;
 	std::cout << ridge_regressor.predict(X2.col(0)) << std::endl;
 
-	/*mlt::utils::optimizers::StochasticGradientDescent<> grad_descent(10, 2000, 0.001, 1);
+	mlt::utils::optimizers::StochasticGradientDescent<> grad_descent(10, 2000, 0.001, 1);
 	mlt::utils::loss_functions::SquaredLoss loss;
-	mlt::models::OptimizableLinearModel<mlt::utils::loss_functions::SquaredLoss, mlt::utils::optimizers::StochasticGradientDescent<>> sgd(loss, grad_descent, 0.5, true);
+	mlt::models::regressors::OptimizableLinearRegressor<mlt::utils::loss_functions::SquaredLoss, mlt::utils::optimizers::StochasticGradientDescent<>> sgd(loss, grad_descent, 0.5, true);
 
 	sgd.fit(X2, Y2, true);
 
-	std::cout << "OptimizableLinearModel<SquaredLoss, SGD>: " << std::endl;
+	std::cout << "OptimizableLinearRegressor<SquaredLoss, SGD>: " << std::endl;
 	std::cout << ridge_regressor.coefficients() << std::endl;
 	std::cout << ridge_regressor.intercepts() << std::endl;
 	std::cout << sgd.predict(X2.col(0)) << std::endl;
 
-	std::cout << "loss with closed form: " << sgd.loss(ridge_regressor.coefficients(), X2, Y2) << std::endl;
-	std::cout << "loss with SGD: " << sgd.loss(sgd.coefficients(), X2, Y2) << std::endl;*/
+	std::cout << "loss with closed form: " << sgd.loss(ridge_regressor.all_coefficients(), X2, Y2) << std::endl;
+	std::cout << "loss with SGD: " << sgd.loss(sgd.all_coefficients(), X2, Y2) << std::endl;
 }
