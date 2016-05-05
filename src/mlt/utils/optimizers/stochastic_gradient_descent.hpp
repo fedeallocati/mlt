@@ -27,8 +27,8 @@ namespace optimizers {
 			const UpdateMethod& update_method = UpdateMethod()) : _batch_size(batch_size), _epochs(epochs), _learning_rate(learning_rate), 
 			_current_learning_rate(learning_rate), _learning_rate_decay(learning_rate_decay), _update_method(update_method) {}
 
-        template <class Model, class TargetType>
-		typename Eigen::MatrixXd run(const Model& model, const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::Matrix<TargetType, Eigen::Dynamic, Eigen::Dynamic>>& target, const Eigen::Ref<const Eigen::MatrixXd>& init, bool cold_start) {
+        template <class Model, class TargetType, int TargetRows, int TargetCols>
+		typename Eigen::MatrixXd run(const Model& model, const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::Matrix<TargetType, TargetRows, TargetCols>>& target, const Eigen::Ref<const Eigen::MatrixXd>& init, bool cold_start) {
 			assert(input.cols() == target.cols());
             if (cold_start) {
                 _current_learning_rate = _learning_rate;
@@ -39,23 +39,15 @@ namespace optimizers {
 
 			Eigen::VectorXd params = eigen::ravel(init);
 
-            std::default_random_engine generator;
-            std::uniform_int_distribution<int> distribution(0, input.cols() - 1);
+			std::random_device rd;
+            std::default_random_engine generator(rd());
 
             for (auto epoch = 0; epoch < _epochs; epoch++) {
                 for (auto iter = 0; iter < iters_per_epoch; iter++) {
-                    Eigen::MatrixXd input_batch = Eigen::MatrixXd(input.rows(), _batch_size);
-					Eigen::Matrix<TargetType, Eigen::Dynamic, Eigen::Dynamic> target_batch = Eigen::Matrix<TargetType, Eigen::Dynamic, Eigen::Dynamic>(target.rows(), _batch_size);
+					Eigen::MatrixXd input_batch;
+					Eigen::Matrix<TargetType, Eigen::Dynamic, Eigen::Dynamic> target_batch;
 
-                    std::vector<int> indexs(_batch_size);
-                    std::generate(indexs.begin(), indexs.end(), [&]() { return distribution(generator); });
-
-                    auto i = 0;
-                    for (auto ridx : indexs) {
-                        input_batch.col(i) = input.col(ridx);
-						target_batch.col(i) = target.col(ridx);
-                        i++;
-                    }
+					std::tie(input_batch, target_batch) = eigen::tied_random_cols_subset(input, target, _batch_size, generator);
 
 					params += _update_method.step(_current_learning_rate, eigen::ravel(model.gradient(eigen::unravel(params, init.rows(), init.cols()), input_batch, target_batch)));
                 }
