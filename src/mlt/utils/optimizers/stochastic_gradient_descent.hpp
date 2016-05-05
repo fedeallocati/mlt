@@ -53,8 +53,9 @@ namespace optimizers {
                 }
 
 				_current_learning_rate *= _learning_rate_decay;
-
+#ifdef MLT_VERBOSE
                 std::cout << "Finished epoch " << epoch + 1 << "/" << _epochs << ": cost " << model.loss(eigen::unravel(params, init.rows(), init.cols()), input, target) << std::endl;
+#endif
             }
 
 			return eigen::unravel(params, init.rows(), init.cols());
