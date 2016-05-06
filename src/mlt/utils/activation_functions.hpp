@@ -9,11 +9,11 @@ namespace activation_functions {
 	class SigmoidActivation {
 	public:
 		Eigen::MatrixXd compute(const Eigen::Ref<const Eigen::MatrixXd>& x) const {
-			return x.unaryExpr([](double z) { return 1.0 / (1.0 + exp(-z)); });
+			return x.unaryExpr([](double z) { double gz = 1.0 / (1.0 + std::exp(-z)); gz = gz < 1 ? gz : 0.9999999999; return gz; });
 		}
 
 		Eigen::MatrixXd gradient(const Eigen::Ref<const Eigen::MatrixXd>& x) const {
-			return x.unaryExpr([](double z) { double gz = 1.0 / (1.0 + exp(-z)); return gz * (1 - gz); });
+			return x.unaryExpr([](double z) { double gz = 1.0 / (1.0 + std::exp(-z)); gz = gz < 1 ? gz : 0.9999999999; return gz * (1 - gz); });
 		}
 	};
 }
