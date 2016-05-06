@@ -77,7 +77,7 @@ namespace autoencoder
 		auto hidden_a = Eigen::MatrixXd{ hidden_activation.compute(hidden_z) };
 		auto reconstruction_z = Eigen::MatrixXd{ (reconstruction_weights * hidden_a).colwise() + reconstruction_intercepts };
 
-		auto rho_hat = Eigen::MatrixXd{ (hidden_a.rowwise().sum() / input.cols()).unaryExpr([](double x) { return std::abs(x - 1.0) < std::numeric_limits<double>::epsilon() ? (x + std::numeric_limits<double>::epsilon()) : x; }) }; };
+		auto rho_hat = Eigen::MatrixXd{ (hidden_a.rowwise().sum() / input.cols()).unaryExpr([](double x) { return std::abs(x - 1.0) < std::numeric_limits<double>::epsilon() ? (x + std::numeric_limits<double>::epsilon()) : x; }) };
 		auto sparsity_penalty = ((sparsity * (sparsity / rho_hat.array()).log()) + ((1 - sparsity) * ((1 - sparsity) / (1 - rho_hat.array())).log())).sum();
 
 		return (((reconstruction_activation.compute(reconstruction_z)) - target).array().pow(2).sum() / (2 * input.cols())) +
@@ -123,7 +123,7 @@ namespace autoencoder
 		auto recontstruction_error = Eigen::MatrixXd{ (reconstruction_activation.compute(reconstruction_z) - target) };
 		auto reconstruction_delta = Eigen::MatrixXd{ recontstruction_error.cwiseProduct(reconstruction_activation.gradient(reconstruction_z)) };
 
-		auto rho_hat = Eigen::MatrixXd{ (hidden_a.rowwise().sum() / input.cols()).unaryExpr([](double x) { return std::abs(x - 1.0) < std::numeric_limits<double>::epsilon() ? (x + std::numeric_limits<double>::epsilon()) : x; }) }; };
+		auto rho_hat = Eigen::MatrixXd{ (hidden_a.rowwise().sum() / input.cols()).unaryExpr([](double x) { return std::abs(x - 1.0) < std::numeric_limits<double>::epsilon() ? (x + std::numeric_limits<double>::epsilon()) : x; }) };
 		auto sparsity_delta = Eigen::VectorXd{ (-sparsity / rho_hat.array()) + ((1 - sparsity) / (1 - rho_hat.array())) };
 		auto hidden_delta = Eigen::MatrixXd{ ((reconstruction_weights.transpose() * reconstruction_delta).colwise() +
 			(sparsity_weight * sparsity_delta)).cwiseProduct(hidden_activation.gradient(hidden_z)) };
