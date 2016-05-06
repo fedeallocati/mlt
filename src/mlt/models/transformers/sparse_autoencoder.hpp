@@ -25,7 +25,7 @@ namespace transformers {
 
 		Eigen::MatrixXd transform(const Eigen::MatrixXd& input) const {
 			assert(this->_fitted);
-			return _hidden_activation.compute((this->_weights * input).colwise() + this->_hidden_intercepts);
+			return _hidden_activation.compute((this->_hidden_weights * input).colwise() + this->_hidden_intercepts);
 		}
 
 		SparseAutoencoder& fit(const Eigen::Ref<const Eigen::MatrixXd>& input, bool cold_start = true) {
