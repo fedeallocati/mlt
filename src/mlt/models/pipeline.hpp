@@ -92,7 +92,7 @@ namespace internal {
 	};
 
 	template <class T, class... Ts>
-	class Pipeline<T, Ts...> : protected Pipeline<Ts...>, public transformers::TransformerMixin<Pipeline<T, Ts...>> {
+	class Pipeline<T, Ts...> : protected Pipeline<Ts...> {
 	public:
 		explicit Pipeline(T& estimator, Ts & ... following) : Pipeline<Ts...>(following...), _estimator(estimator) {}
 
@@ -102,19 +102,19 @@ namespace internal {
 		template<size_t _Index>
 		using sub_pipeline_t = typename internal::sub_pipeline_element<_Index, Pipeline<T, Ts...>>::type;
 
-		Pipeline<T, Ts...>& fit(const Eigen::MatrixXd& input, bool cold_start = true)
+		Pipeline<T, Ts...>& fit(const Eigen::Ref<const Eigen::MatrixXd>& input, bool cold_start = true)
 		{
 			sub_pipeline_t<1>::fit(_estimator.fit_transform(input, cold_start), cold_start);
 			return *this;
 		}
 
-		Pipeline<T, Ts...>& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXd& target, bool cold_start = true)
+		Pipeline<T, Ts...>& fit(const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& target, bool cold_start = true)
 		{
 			sub_pipeline_t<1>::fit(_estimator.fit_transform(input, target, cold_start), target, cold_start);
 			return *this;
 		}
 
-		Pipeline<T, Ts...>& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXi& classes, bool cold_start = true)
+		Pipeline<T, Ts...>& fit(const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::VectorXi>& classes, bool cold_start = true)
 		{
 			sub_pipeline_t<1>::fit(_estimator.fit_transform(input, classes, cold_start), classes, cold_start);
 			return *this;
@@ -138,6 +138,14 @@ namespace internal {
 		Eigen::MatrixXi cluster(const Eigen::MatrixXd& input) const
 		{
 			return sub_pipeline_t<1>::cluster(_estimator.transform(input));
+		}
+
+		double score(const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& target) const {
+			return sub_pipeline_t<1>::score(_estimator.transform(input), target);
+		}
+
+		double score(const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::VectorXi>& classes) const {
+			return sub_pipeline_t<1>::score(_estimator.transform(input), classes);
 		}
 
 		T& top_estimator() { return _estimator; }
