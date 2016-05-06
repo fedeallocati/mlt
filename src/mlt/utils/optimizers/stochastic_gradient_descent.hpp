@@ -37,24 +37,28 @@ namespace optimizers {
 
             auto iters_per_epoch = _batch_size > 0 && _batch_size <= input.cols() ? input.cols() / _batch_size : 1;
 
-			Eigen::VectorXd params = eigen::ravel(init);
+			Eigen::MatrixXd params = init;
 
 			std::random_device rd;
             std::default_random_engine generator(rd());
 
             for (auto epoch = 0; epoch < _epochs; epoch++) {
                 for (auto iter = 0; iter < iters_per_epoch; iter++) {
-					Eigen::MatrixXd input_batch;
-					Eigen::Matrix<TargetType, Eigen::Dynamic, Eigen::Dynamic> target_batch;
+					if (_batch_size > 0) {
+						Eigen::MatrixXd input_batch;
+						Eigen::Matrix<TargetType, Eigen::Dynamic, Eigen::Dynamic> target_batch;
 
-					std::tie(input_batch, target_batch) = eigen::tied_random_cols_subset(input, target, _batch_size, generator);
+						std::tie(input_batch, target_batch) = eigen::tied_random_cols_subset(input, target, _batch_size, generator);
 
-					params += _update_method.step(_current_learning_rate, eigen::ravel(model.gradient(eigen::unravel(params, init.rows(), init.cols()), input_batch, target_batch)));
+						params += _update_method.step(_current_learning_rate, model.gradient(params, input_batch, target_batch));
+					} else {
+						params += _update_method.step(_current_learning_rate, model.gradient(params, input, target));
+					}
                 }
 
 				_current_learning_rate *= _learning_rate_decay;
 #ifdef MLT_VERBOSE
-                std::cout << "Finished epoch " << epoch + 1 << "/" << _epochs << ": cost " << model.loss(eigen::unravel(params, init.rows(), init.cols()), input, target) << std::endl;
+                std::cout << "Finished epoch " << epoch + 1 << "/" << _epochs << ": cost " << model.loss(params, input, target) << std::endl;
 #endif
             }
 

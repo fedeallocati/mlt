@@ -23,6 +23,7 @@ namespace eigen {
 	template <typename ScalarA, int RowsA, int ColsA, typename ScalarB, int RowsB, int ColsB, typename URng = std::default_random_engine >
 	inline std::tuple<Matrix<ScalarA, Dynamic, Dynamic>, Matrix<ScalarB, Dynamic, Dynamic>>
 	tied_random_cols_subset(const Ref<const Matrix<ScalarA, RowsA, ColsA>>& a, const Ref<const Matrix<ScalarB, RowsB, ColsB>>& b, size_t subset_size, URng&& rng = URng()) {
+		assert(subset_size > 0);
 		std::uniform_int_distribution<size_t> distribution(0, a.cols() - 1);
 
 		auto a_batch = Matrix<ScalarA, Dynamic, Dynamic>(a.rows(), subset_size);
@@ -40,6 +41,7 @@ namespace eigen {
 	template <typename ScalarA, int RowsA, int ColsA, typename ScalarB, int RowsB, int ColsB, typename URng = std::default_random_engine >
 	inline std::tuple<Matrix<ScalarA, Dynamic, Dynamic>, Matrix<ScalarB, Dynamic, Dynamic>>
 	tied_random_cols_subset(const Matrix<ScalarA, RowsA, ColsA>& a, const Matrix<ScalarB, RowsB, ColsB>& b, size_t subset_size, URng&& rng = URng()) {
+		assert(subset_size > 0);
 		std::uniform_int_distribution<size_t> distribution(0, a.cols() - 1);
 
 		auto a_batch = Matrix<ScalarA, Dynamic, Dynamic>(a.rows(), subset_size);

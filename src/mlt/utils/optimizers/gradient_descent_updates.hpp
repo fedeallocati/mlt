@@ -11,7 +11,7 @@ namespace optimizers {
 	public:
 		void restart() {}
 
-		Eigen::VectorXd step(double learning_rate, const Eigen::Ref<const Eigen::VectorXd>& gradient) {
+		Eigen::MatrixXd step(double learning_rate, const Eigen::Ref<const Eigen::MatrixXd>& gradient) {
 			return -learning_rate * gradient;
 		}
 	};
@@ -25,9 +25,9 @@ namespace optimizers {
 
 		void restart() { _init = false; }
 
-		Eigen::VectorXd step(double learning_rate, const Eigen::Ref<const Eigen::VectorXd>& gradient) {
+		Eigen::MatrixXd step(double learning_rate, const Eigen::Ref<const Eigen::MatrixXd>& gradient) {
 			if (!_init) {
-				_cache = Eigen::VectorXd::Zero(gradient.size());
+				_cache = Eigen::MatrixXd::Zero(gradient.rows(), gradient.cols());
 			}
 
 			_cache = _mu * _cache - learning_rate * gradient;
@@ -37,7 +37,7 @@ namespace optimizers {
 	protected:
 		bool _init;
 		double _mu;
-		Eigen::VectorXd _cache;
+		Eigen::MatrixXd _cache;
 	};
 
 	// Implementation of the Nesterov's Accelerated Momentum Gradient Descent update rule
@@ -49,9 +49,9 @@ namespace optimizers {
 
 		void restart() { _init = false; }
 
-		Eigen::VectorXd step(double learning_rate, const Eigen::Ref<const Eigen::VectorXd>& gradient) {
+		Eigen::MatrixXd step(double learning_rate, const Eigen::Ref<const Eigen::MatrixXd>& gradient) {
 			if (!_init) {
-				_cache = Eigen::VectorXd::Zero(gradient.size());
+				_cache = Eigen::MatrixXd::Zero(gradient.rows(), gradient.cols());
 			}
 
 			Eigen::VectorXd velocity_prev = _cache;
@@ -62,7 +62,7 @@ namespace optimizers {
 	protected:
 		bool _init;
 		double _mu;
-		Eigen::VectorXd _cache;
+		Eigen::MatrixXd _cache;
 	};
 
 	// Implementation of the Adagrad Gradient Descent update rule
@@ -72,9 +72,9 @@ namespace optimizers {
 
 		void restart() { _init = false; }
 
-		Eigen::VectorXd step(double learning_rate, const Eigen::Ref<const Eigen::VectorXd>& gradient) {
+		Eigen::MatrixXd step(double learning_rate, const Eigen::Ref<const Eigen::MatrixXd>& gradient) {
 			if (!_init) {
-				_cache = Eigen::VectorXd::Zero(gradient.size());
+				_cache = Eigen::MatrixXd::Zero(gradient.rows(), gradient.cols());
 			}
 
 			_cache += gradient.array().pow(2).matrix();
@@ -83,7 +83,7 @@ namespace optimizers {
 		}
 	protected:
 		bool _init;
-		Eigen::VectorXd _cache;
+		Eigen::MatrixXd _cache;
 	};
 
 	// Implementation of the RMSProp Gradient Descent update rule
@@ -95,9 +95,9 @@ namespace optimizers {
 
 		void restart() { _init = false; }
 
-		Eigen::VectorXd step(double learning_rate, const Eigen::Ref<const Eigen::VectorXd>& gradient) {
+		Eigen::MatrixXd step(double learning_rate, const Eigen::Ref<const Eigen::MatrixXd>& gradient) {
 			if (!_init) {
-				_cache = Eigen::VectorXd::Zero(gradient.size());
+				_cache = Eigen::MatrixXd::Zero(gradient.rows(), gradient.cols());
 			}
 
 			_cache = _decay_rate * _cache + (1 - _decay_rate) * gradient.array().pow(2).matrix();
@@ -107,7 +107,7 @@ namespace optimizers {
 	protected:
 		bool _init;
 		double _decay_rate;
-		Eigen::VectorXd _cache;
+		Eigen::MatrixXd _cache;
 	};
 }
 }
