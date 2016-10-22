@@ -4,15 +4,17 @@
 
 #include <Eigen/Core>
 
-#include "../mlt/models/classifiers/optimizable_linear_classifier.hpp"
-#include "../mlt/utils/loss_functions.hpp"
+#include "models/classifiers/optimizable_linear_classifier.hpp"
+#include "utils/loss_functions.hpp"
 
-#include "misc.hpp"
-#include "../mlt/utils/optimizers/stochastic_gradient_descent.hpp"
-#include "../mlt/utils/eigen.hpp"
+#include "../misc.hpp"
+#include "utils/optimizers/stochastic_gradient_descent.hpp"
+#include "utils/eigen.hpp"
 
 //#include "../mlt/models/pipeline.hpp"
 //#include "../mlt/utils/linear_algebra.hpp"
+
+#include <random>
 
 int main() {
 	print_info();

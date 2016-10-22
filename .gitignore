@@ -1,0 +1,12 @@
+## Visual Studio
+*.suo
+*.user
+*.VC.db
+*.VC.opendb
+.vs/
+
+# Temporary files
+tmp/
+
+# Build results
+bin/

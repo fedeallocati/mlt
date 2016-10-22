@@ -4,10 +4,10 @@
 
 #include <Eigen/Core>
 
-#include "misc.hpp"
+#include "../misc.hpp"
 
-#include "../mlt/models/transformers/principal_components_analysis.hpp"
-#include "../mlt/models/transformers/zero_components_analysis.hpp"
+#include "models/transformers/principal_components_analysis.hpp"
+#include "models/transformers/zero_components_analysis.hpp"
 
 void pca_examples() {
 	Eigen::MatrixXd X(2, 6);

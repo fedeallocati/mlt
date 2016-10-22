@@ -4,13 +4,13 @@
 
 #include <Eigen/Core>
 
-#include "misc.hpp"
+#include "../misc.hpp"
 
-#include "../mlt/models/regressors/least_squares_linear_regression.hpp"
-#include "../mlt/models/regressors/ridge_regression.hpp"
-#include "../mlt/models/regressors/optimizable_linear_regressor.hpp"
-#include "../mlt/utils/optimizers/stochastic_gradient_descent.hpp"
-#include "../mlt/utils/loss_functions.hpp"
+#include "models/regressors/least_squares_linear_regression.hpp"
+#include "models/regressors/ridge_regression.hpp"
+#include "models/regressors/optimizable_linear_regressor.hpp"
+#include "utils/optimizers/stochastic_gradient_descent.hpp"
+#include "utils/loss_functions.hpp"
 
 void benchmark_linear_solvers() {
 	Eigen::MatrixXd XN = Eigen::MatrixXd::Random(100, 100000);

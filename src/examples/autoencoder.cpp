@@ -4,14 +4,14 @@
 
 #include <Eigen/Core>
 
-#include "../mlt/models/transformers/autoencoder.hpp"
-#include "../mlt/models/transformers/sparse_autoencoder.hpp"
-#include "../mlt/models/transformers/tied_autoencoder.hpp"
-#include "../mlt/models/transformers/sparse_tied_autoencoder.hpp"
-#include "../mlt/utils/optimizers/stochastic_gradient_descent.hpp"
-#include "../mlt/utils/activation_functions.hpp"
+#include "models/transformers/autoencoder.hpp"
+#include "models/transformers/sparse_autoencoder.hpp"
+#include "models/transformers/tied_autoencoder.hpp"
+#include "models/transformers/sparse_tied_autoencoder.hpp"
+#include "utils/optimizers/stochastic_gradient_descent.hpp"
+#include "utils/activation_functions.hpp"
 
-#include "misc.hpp"
+#include "../misc.hpp"
 
 void autoencoder_examples() {
 	print_info();

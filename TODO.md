@@ -9,6 +9,7 @@ List of things to implement:
 
 #### Classifiers:
 - Move current implementations to new API and input scheme: SoftmaxRegression, LinearSVMClassifier and MultilayerPerceptronClassifier
+- Perceptron
 - LogisticRegression
 - KNearestNeighboursClassifier
 - GaussianDiscriminantAnalysis
@@ -21,7 +22,7 @@ List of things to implement:
 #### Transformation:
 - MeanSubstraction
 - Normalizer
-- IndependentComponentAnalysis
+- IndependentComponentAnalysis?
 
 ### Multiple Common Datasets for doing tests and examples
 ### Make examples and tests
