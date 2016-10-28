@@ -1,5 +1,7 @@
-#ifndef MLT_MODELS_OPTIMIZABLE_LINEAR_REGRESSOR_HPP
-#define MLT_MODELS_OPTIMIZABLE_LINEAR_REGRESSOR_HPP
+#ifndef MLT_MODELS_REGRESSORS_OPTIMIZABLE_LINEAR_REGRESSOR_HPP
+#define MLT_MODELS_REGRESSORS_OPTIMIZABLE_LINEAR_REGRESSOR_HPP
+
+#include <type_traits>
 
 #include <Eigen/Core>
 
@@ -12,14 +14,9 @@ namespace regressors {
 	template <class Loss, class Optimizer>
 	class OptimizableLinearRegressor : public OptimizableLinearModel<LinearRegressor<OptimizableLinearRegressor<Loss, Optimizer>>, Loss, Optimizer> {
 	public:
-		template <class L, class O, class = std::enable_if<std::is_same<std::decay_t<L>, Loss>::value && std::is_convertible<std::decay_t<O>, Optimizer>::value>>
+		template <class L, class O, class = enable_if<is_same<decay_t<L>, Loss>::value && is_convertible<decay_t<O>, Optimizer>::value>>
 		explicit OptimizableLinearRegressor(L&& loss, O&& optimizer, double regularization,
-			bool fit_intercept = true) : OptimizableLinearModel(std::forward<L>(loss), std::forward<O>(optimizer), regularization, fit_intercept) {}
-
-		OptimizableLinearRegressor& fit(const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& target, bool cold_start = true) {
-			this->_fit(input, target, cold_start);
-			return *this;
-		}
+			bool fit_intercept = true) : OptimizableLinearModel(forward<L>(loss), forward<O>(optimizer), regularization, fit_intercept) {}
 	};
 }
 }

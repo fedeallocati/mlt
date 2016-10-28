@@ -5,29 +5,26 @@
 
 #include <Eigen/Core>
 
-#include "types.hpp"
+#include "../defs.hpp"
 
 namespace mlt {
 namespace utils {
 namespace eigen {
-	using namespace Eigen;
-
-	inline Map<const MatrixXd> ravel(const Ref<const MatrixXd>& x) {
+	inline Map<const MatrixXd> ravel(MatrixXdRef x) {
 		return Map<const MatrixXd>(x.data(), x.size(), 1);
 	}
 
-	inline Map<const MatrixXd> unravel(const Ref<const MatrixXd>& x, size_t rows, size_t cols) {
+	inline Map<const MatrixXd> unravel(MatrixXdRef x, size_t rows, size_t cols) {
 		return Map<const MatrixXd>(x.data(), rows, cols);
 	}
 
-	template <typename ScalarA, int RowsA, int ColsA, typename ScalarB, int RowsB, int ColsB, typename URng = std::default_random_engine >
-	inline std::tuple<Matrix<ScalarA, Dynamic, Dynamic>, Matrix<ScalarB, Dynamic, Dynamic>>
-	tied_random_cols_subset(const Ref<const Matrix<ScalarA, RowsA, ColsA>>& a, const Ref<const Matrix<ScalarB, RowsB, ColsB>>& b, size_t subset_size, URng&& rng = URng()) {
+	template <class MatrixA, class MatrixB, typename URng = std::default_random_engine >
+	auto tied_random_cols_subset(MatrixA&& a, MatrixB&& b, size_t subset_size, URng&& rng = URng()) {
 		assert(subset_size > 0);
-		std::uniform_int_distribution<size_t> distribution(0, a.cols() - 1);
+		uniform_int_distribution<size_t> distribution(0, a.cols() - 1);
 
-		auto a_batch = Matrix<ScalarA, Dynamic, Dynamic>(a.rows(), subset_size);
-		auto b_batch = Matrix<ScalarB, Dynamic, Dynamic>(b.rows(), subset_size);
+		auto a_batch = a.leftCols(subset_size).eval();
+		auto b_batch = b.leftCols(subset_size).eval();
 
 		for (auto i = 0; i < subset_size; i++) {
 			auto cidx = distribution(rng);
@@ -35,27 +32,35 @@ namespace eigen {
 			b_batch.col(i) = b.col(cidx);
 		}
 
-		return{ a_batch, b_batch };
+		return make_tuple(a_batch, b_batch);
 	}
 
-	template <typename ScalarA, int RowsA, int ColsA, typename ScalarB, int RowsB, int ColsB, typename URng = std::default_random_engine >
-	inline std::tuple<Matrix<ScalarA, Dynamic, Dynamic>, Matrix<ScalarB, Dynamic, Dynamic>>
-	tied_random_cols_subset(const Matrix<ScalarA, RowsA, ColsA>& a, const Matrix<ScalarB, RowsB, ColsB>& b, size_t subset_size, URng&& rng = URng()) {
-		assert(subset_size > 0);
-		std::uniform_int_distribution<size_t> distribution(0, a.cols() - 1);
+	auto classes_vector_to_classes_matrix(VectorXiRef classes) {
+		auto classes_matrix = MatrixXi{ MatrixXi::Zero(classes.maxCoeff() + 1, classes.size()) };
 
-		auto a_batch = Matrix<ScalarA, Dynamic, Dynamic>(a.rows(), subset_size);
-		auto b_batch = Matrix<ScalarB, Dynamic, Dynamic>(b.rows(), subset_size);
-
-		for (auto i = 0; i < subset_size; i++) {
-			auto cidx = distribution(rng);
-			a_batch.col(i) = a.col(cidx);
-			b_batch.col(i) = b.col(cidx);
+		for (unsigned int i = 0; i < classes.size(); i++) {
+			classes_matrix(classes(i), i) = 1;
 		}
 
-		return{ a_batch, b_batch };
+		return classes_matrix;
 	}
-	
+
+	auto classes_matrix_to_classes_vector(MatrixXiRef classes) {
+		assert((classes.colwise().sum().array() == 1).all());
+
+		auto classes_vector = VectorXi(classes.cols());
+
+		for (size_t col = 0; col < classes.cols(); col++) {
+			for (size_t row = 0; row < classes.rows(); row++) {
+				if (classes(row, col) == 1) {
+					classes_vector(col) = (row);
+					break;
+				}
+			}
+		}
+
+		return classes_vector;
+	}
 }
 }
 }

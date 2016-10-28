@@ -8,7 +8,7 @@ List of things to implement:
 - KNearestNeighboursRegression
 
 #### Classifiers:
-- Move current implementations to new API and input scheme: SoftmaxRegression, LinearSVMClassifier and MultilayerPerceptronClassifier
+- Move current implementations to new API and input scheme: MultilayerPerceptronClassifier
 - Perceptron
 - LogisticRegression
 - KNearestNeighboursClassifier
@@ -17,12 +17,11 @@ List of things to implement:
 
 #### Clusterers:
 - KMeans
-- GaussianMixture (with Expectation Maximization for training)
+- GaussianMixture (with EM)
 
 #### Transformation:
 - MeanSubstraction
 - Normalizer
-- IndependentComponentAnalysis?
 
-### Multiple Common Datasets for doing tests and examples
+### Add common Datasets for doing tests and examples
 ### Make examples and tests

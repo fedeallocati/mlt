@@ -1,36 +1,38 @@
 #ifndef MLT_UTILS_LINEAR_ALGEBRA_HPP
 #define MLT_UTILS_LINEAR_ALGEBRA_HPP
 
+#include <algorithm>
+#include <limits>
+
 #include <Eigen/Core>
 #include <Eigen/SVD>
+
+#include "../defs.hpp"
 
 namespace mlt {
 namespace utils {
 namespace linear_algebra {
 	// Moore-Penrose pseudoinverse
-	inline Eigen::MatrixXd pseudo_inverse(const Eigen::Ref<const Eigen::MatrixXd>& x) {
-		auto svd = x.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV);
+	inline auto pseudo_inverse(MatrixXdRef x) {
+		auto svd = x.jacobiSvd(ComputeThinU | ComputeThinV);
 
-		auto tolerance = std::numeric_limits<double>::epsilon() * std::max(x.rows(), x.cols()) * svd.singularValues().maxCoeff();
+		auto tolerance = numeric_limits<double>::epsilon() * max(x.rows(), x.cols()) * svd.singularValues().maxCoeff();
 		
-		return svd.matrixV() * svd.singularValues().unaryExpr([=](double s) { return (s < tolerance) ? 0 : 1 / s; }).eval().asDiagonal() * svd.matrixU().transpose();
+		return (svd.matrixV() * svd.singularValues().unaryExpr([=](double s) { return (s < tolerance) ? 0 : 1 / s; }).eval().asDiagonal() * svd.matrixU().transpose()).eval();
 	}
 
-	inline Eigen::MatrixXd covariance(const Eigen::Ref<const Eigen::MatrixXd>& x, const Eigen::Ref<const Eigen::MatrixXd>& y)
-	{
+	inline auto covariance(MatrixXdRef x, MatrixXdRef y) {
 		assert(x.cols() == y.cols());
 		const auto num_observations = static_cast<double>(x.cols());
-		return (x.colwise() - (x.rowwise().sum() / num_observations)) * (y.colwise() - (y.rowwise().sum() / num_observations)).transpose() / num_observations;
+		return ((x.colwise() - (x.rowwise().sum() / num_observations)) * (y.colwise() - (y.rowwise().sum() / num_observations)).transpose() / num_observations).eval();
 	}
 
-	inline Eigen::MatrixXd linear_transformation(const Eigen::Ref<const Eigen::MatrixXd>& x, const Eigen::Ref<const Eigen::MatrixXd>& w)
-	{
-		return w * x;
+	inline auto linear_transformation(MatrixXdRef x, MatrixXdRef w) {
+		return (w * x).eval();
 	}
 
-	inline Eigen::MatrixXd linear_transformation(const Eigen::Ref<const Eigen::MatrixXd>& x, const Eigen::Ref<const Eigen::MatrixXd>& w, const Eigen::Ref<const Eigen::VectorXd>& b)
-	{
-		return (w * x).colwise() + b;
+	inline auto linear_transformation(MatrixXdRef x, MatrixXdRef w, VectorXdRef b) {
+		return ((w * x).colwise() + b).eval();
 	}
 }
 }

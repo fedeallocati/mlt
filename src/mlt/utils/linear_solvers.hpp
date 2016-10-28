@@ -2,46 +2,43 @@
 #define MLT_UTILS_LINEAR_SOLVERS_HPP
 
 #include <Eigen/Core>
-#include <Eigen/IterativeLinearSolvers>
 #include <Eigen/Cholesky>
+#include <Eigen/IterativeLinearSolvers>
 #include <Eigen/SVD>
+
+#include "../defs.hpp"
 
 namespace mlt {
 namespace utils {
 namespace linear_solvers {
-
-	template <typename Solver, typename SolverImplementation>
-	class BaseSolver
-	{
+	template <typename ConcreteSolver, typename SolverImplementation>
+	class BaseSolver {
 	public:
-		Solver& compute(const Eigen::MatrixXd& A)
-		{
+		ConcreteSolver& compute(MatrixXdRef A) {
 			_solver.compute(A);
-			return static_cast<Solver&>(*this);
+			return static_cast<ConcreteSolver&>(*this);
 		}
 
-		Eigen::MatrixXd solve(const Eigen::MatrixXd& B) const
-		{
-			return _solver.solve(B);
+		auto solve(MatrixXdRef B) const {
+			return MatrixXd{_solver.solve(B)};
 		}
+
 	protected:
 		BaseSolver() = default;
 
 		SolverImplementation _solver;
 	};
 
-	class CGSolver : public BaseSolver<CGSolver, Eigen::ConjugateGradient<Eigen::MatrixXd>> {};
+	class CGSolver : public BaseSolver<CGSolver, ConjugateGradient<MatrixXd>> {};
 
-	class LLTSolver : public BaseSolver<LLTSolver, Eigen::LLT<Eigen::MatrixXd>> {};
+	class LLTSolver : public BaseSolver<LLTSolver, LLT<MatrixXd>> {};
 
-	class LDLTSolver : public BaseSolver<LDLTSolver, Eigen::LDLT<Eigen::MatrixXd>> {};
+	class LDLTSolver : public BaseSolver<LDLTSolver, LDLT<MatrixXd>> {};
 
-	class SVDSolver : public BaseSolver<SVDSolver, Eigen::JacobiSVD<Eigen::MatrixXd>>
-	{
+	class SVDSolver : public BaseSolver<SVDSolver, JacobiSVD<MatrixXd>>	{
 	public:
-		SVDSolver& compute(const Eigen::MatrixXd& A)
-		{
-			_solver.compute(A, Eigen::ComputeThinU | Eigen::ComputeThinV);
+		SVDSolver& compute(MatrixXdRef A) {
+			_solver.compute(A, ComputeThinU | ComputeThinV);
 			return *this;
 		}
 	};

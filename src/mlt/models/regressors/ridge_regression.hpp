@@ -1,6 +1,8 @@
 #ifndef MLT_MODELS_REGRESSORS_RIDGE_REGRESSION_HPP
 #define MLT_MODELS_REGRESSORS_RIDGE_REGRESSION_HPP
 
+#include <type_traits>
+
 #include <Eigen/Core>
 
 #include "linear_regressor.hpp"
@@ -9,31 +11,31 @@
 namespace mlt {
 namespace models {
 namespace regressors {
-	template <class Solver = utils::linear_solvers::SVDSolver>
+	using namespace utils::linear_solvers;
+
+	template <class Solver = SVDSolver>
 	class RidgeRegression : public LinearRegressor<RidgeRegression<Solver>> {
 	public:
 		explicit RidgeRegression(double regularization, bool fit_intercept = true) : LinearRegressor(fit_intercept),
 			_regularization(regularization), _solver(Solver()) {}
 
-		explicit RidgeRegression(double regularization, const Solver& solver, bool fit_intercept = true) : LinearRegressor(fit_intercept),
-			_regularization(regularization), _solver(solver) {}
+		template <class S, class = enable_if<is_same<decay_t<S>, Solver>::value>>
+		explicit RidgeRegression(double regularization, S&& solver, bool fit_intercept = true) : LinearRegressor(fit_intercept),
+			_regularization(regularization), _solver(forward<S>(solver)) {}
 
-		explicit RidgeRegression(double regularization, Solver&& solver, bool fit_intercept = true) : LinearRegressor(fit_intercept),
-			_regularization(regularization), _solver(solver) {}
-
-		RidgeRegression& fit(const Eigen::MatrixXd& input, const Eigen::MatrixXd& target, bool = true) {
-			Eigen::MatrixXd input_prime(input.rows() + (_fit_intercept ? 1 : 0), input.cols());
+		Self& fit(Features input, Target target, bool = true) {
+			MatrixXd input_prime(input.rows() + (_fit_intercept ? 1 : 0), input.cols());
 			input_prime.topRows(input.rows()) << input;
-			Eigen::MatrixXd reg = Eigen::MatrixXd::Identity(input_prime.rows(), input_prime.rows()) * _regularization;
+			MatrixXd reg = MatrixXd::Identity(input_prime.rows(), input_prime.rows()) * _regularization;
 
 			if (_fit_intercept) {
-				input_prime.bottomRows<1>() = Eigen::VectorXd::Ones(input.cols());
+				input_prime.bottomRows<1>() = VectorXd::Ones(input.cols());
 				reg(reg.rows() - 1, reg.cols() - 1) = 0;
 			}
 
 			_set_coefficients(_solver.compute((input_prime * input_prime.transpose() + reg)).solve(input_prime * target.transpose()).transpose());
 
-			return *this;
+			return _self();
 		}
 
 	protected:

@@ -3,43 +3,56 @@
 
 #include <Eigen/Core>
 
-#include "base_model.hpp"
+#include "base.hpp"
 #include "../utils/linear_algebra.hpp"
 
 namespace mlt {
 namespace models {
+	using namespace utils::linear_algebra;
 
-	class LinearModel : public BaseModel {
+	template <class BaseModelType>
+	class LinearModel : public BaseModelType {
 	public:
-		bool fit_intercept() const { return _fit_intercept; }
+		inline auto fit_intercept() const { return _fit_intercept; }
 
-		Eigen::MatrixXd coefficients() const { assert(_fitted); return _fit_intercept ? _coefficients.leftCols(_coefficients.cols() - 1) : _coefficients; }
+		inline const auto coefficients() const { assert(_fitted); return _fit_intercept ? _coefficients.leftCols(_coefficients.cols() - 1).eval() : _coefficients; }
 
-		Eigen::VectorXd intercepts() const { assert(_fitted && _fit_intercept); return _coefficients.rightCols<1>(); }
+		inline const auto intercepts() const { assert(_fitted && _fit_intercept); return _coefficients.rightCols<1>().eval(); }
 
-		const Eigen::MatrixXd& all_coefficients() const { assert(_fitted); return _coefficients; }
+		inline const auto all_coefficients() const { assert(_fitted); return _coefficients; }
+
 	protected:
-		explicit LinearModel(bool fit_intercept) : _fit_intercept(fit_intercept) {}
+		LinearModel(bool fit_intercept) : _fit_intercept(fit_intercept) {}
 
-		void _set_coefficients(const Eigen::Ref<const Eigen::MatrixXd>& coefficients) {
+		void _set_coefficients(MatrixXdRef coefficients) {
 			_coefficients = coefficients;
 			_fitted = true;
-			_input_size = coefficients.rows();
-			_output_size = coefficients.cols();
 		}
 
-		Eigen::MatrixXd _apply_linear_transformation(const Eigen::Ref<const Eigen::MatrixXd>& input) const {
+		auto _apply_linear_transformation(Features input) const {
 			assert(_fitted);
+
 			if (_fit_intercept) {
-				return utils::linear_algebra::linear_transformation(input, _coefficients.leftCols(_coefficients.cols() - 1), _coefficients.rightCols<1>());
+				return linear_transformation(input, _coefficients.leftCols(_coefficients.cols() - 1), _coefficients.rightCols<1>());
 			}
-			return utils::linear_algebra::linear_transformation(input, _coefficients);
+
+			return linear_transformation(input, _coefficients);
+		}
+
+		auto _apply_linear_transformation(Features input, MatrixXdRef coeffs) const {
+			assert(_fitted);
+
+			if (_fit_intercept) {
+				return linear_transformation(input, _coefficients.leftCols(_coefficients.cols() - 1), _coefficients.rightCols<1>());
+			}
+			
+			return linear_transformation(input, _coefficients);
 		}
 
 		const bool _fit_intercept;
 
 	private:
-		Eigen::MatrixXd _coefficients;
+		MatrixXd _coefficients;
 	};
 }
 }

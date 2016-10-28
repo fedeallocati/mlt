@@ -1,21 +1,25 @@
 #ifndef MLT_MODELS_IMPLEMENTATIONS_AUTOENCODER_HPP
 #define MLT_MODELS_IMPLEMENTATIONS_AUTOENCODER_HPP
 
+#include <limits>
+#include <tuple>
+
 #include <Eigen/Core>
+
+#include "../../defs.hpp"
 
 namespace mlt {
 namespace models {
 namespace implementations {
-namespace autoencoder
-{
+namespace autoencoder {
 	template <class HiddenActivation, class ReconstructionActivation>
-	double loss(const HiddenActivation& hidden_activation, const ReconstructionActivation& reconstruction_activation,
-	const Eigen::Ref<const Eigen::MatrixXd>& hidden_weights, const Eigen::Ref<const Eigen::VectorXd>& hidden_intercepts,
-	const Eigen::Ref<const Eigen::MatrixXd>& reconstruction_weights, const Eigen::Ref<const Eigen::VectorXd>& reconstruction_intercepts,
-	double regularization, const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& target) {
-		auto hidden_z = Eigen::MatrixXd{ (hidden_weights * input).colwise() + hidden_intercepts };
-		auto hidden_a = Eigen::MatrixXd{ hidden_activation.compute(hidden_z) };
-		auto reconstruction_z = Eigen::MatrixXd{ (reconstruction_weights * hidden_a).colwise() + reconstruction_intercepts };
+	auto loss(const HiddenActivation& hidden_activation, const ReconstructionActivation& reconstruction_activation,
+	MatrixXdRef hidden_weights, VectorXdRef hidden_intercepts,
+	MatrixXdRef reconstruction_weights, VectorXdRef reconstruction_intercepts,
+	double regularization, MatrixXdRef input, MatrixXdRef target) {
+		auto hidden_z = ((hidden_weights * input).colwise() + hidden_intercepts).eval();
+		auto hidden_a = (hidden_activation.compute(hidden_z)).eval();
+		auto reconstruction_z = ((reconstruction_weights * hidden_a).colwise() + reconstruction_intercepts).eval();
 
 		return (((reconstruction_activation.compute(reconstruction_z)) - target).array().pow(2).sum() / (2 * input.cols())) +
 			regularization * hidden_weights.array().pow(2).sum() +
@@ -23,18 +27,18 @@ namespace autoencoder
 	}
 
 	template <class HiddenActivation, class ReconstructionActivation>
-	std::tuple<Eigen::MatrixXd, Eigen::VectorXd, Eigen::MatrixXd, Eigen::VectorXd> 
+	tuple<MatrixXd, VectorXd, MatrixXd, VectorXd> 
 	gradient(const HiddenActivation& hidden_activation, const ReconstructionActivation& reconstruction_activation,
-	const Eigen::Ref<const Eigen::MatrixXd>& hidden_weights, const Eigen::Ref<const Eigen::VectorXd>& hidden_intercepts,
-	const Eigen::Ref<const Eigen::MatrixXd>& reconstruction_weights, const Eigen::Ref<const Eigen::VectorXd>& reconstruction_intercepts,
-	double regularization, const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& target) {
-		auto hidden_z = Eigen::MatrixXd{ (hidden_weights * input).colwise() + hidden_intercepts };
-		auto hidden_a = Eigen::MatrixXd{ hidden_activation.compute(hidden_z) };
-		auto reconstruction_z = Eigen::MatrixXd{ (reconstruction_weights * hidden_a).colwise() + reconstruction_intercepts };
-		auto recontstruction_error = Eigen::MatrixXd{ (reconstruction_activation.compute(reconstruction_z) - target) };
-		auto reconstruction_delta = Eigen::MatrixXd{ recontstruction_error.cwiseProduct(reconstruction_activation.gradient(reconstruction_z)) };
+	MatrixXdRef hidden_weights, VectorXdRef hidden_intercepts,
+	MatrixXdRef reconstruction_weights, VectorXdRef reconstruction_intercepts,
+	double regularization, MatrixXdRef input, MatrixXdRef target) {
+		auto hidden_z = ((hidden_weights * input).colwise() + hidden_intercepts).eval();
+		auto hidden_a = (hidden_activation.compute(hidden_z)).eval();
+		auto reconstruction_z = ((reconstruction_weights * hidden_a).colwise() + reconstruction_intercepts).eval();
+		auto recontstruction_error = ((reconstruction_activation.compute(reconstruction_z) - target)).eval();
+		auto reconstruction_delta = (recontstruction_error.cwiseProduct(reconstruction_activation.gradient(reconstruction_z))).eval();
 
-		auto hidden_delta = Eigen::MatrixXd{ (reconstruction_weights.transpose() * reconstruction_delta).cwiseProduct(hidden_activation.gradient(hidden_z)) };
+		auto hidden_delta = ((reconstruction_weights.transpose() * reconstruction_delta).cwiseProduct(hidden_activation.gradient(hidden_z))).eval();
 
 		return{ (hidden_delta * input.transpose() / input.cols()) + regularization * 2 * hidden_weights,
 			hidden_delta.rowwise().sum() / input.cols(),
@@ -43,22 +47,22 @@ namespace autoencoder
 	}
 
 	template <class HiddenActivation, class ReconstructionActivation>
-	std::tuple<double, Eigen::MatrixXd, Eigen::VectorXd, Eigen::MatrixXd, Eigen::VectorXd>
+	tuple<double, MatrixXd, VectorXd, MatrixXd, VectorXd>
 	loss_and_gradient(const HiddenActivation& hidden_activation, const ReconstructionActivation& reconstruction_activation,
-	const Eigen::Ref<const Eigen::MatrixXd>& hidden_weights, const Eigen::Ref<const Eigen::VectorXd>& hidden_intercepts,
-	const Eigen::Ref<const Eigen::MatrixXd>& reconstruction_weights, const Eigen::Ref<const Eigen::VectorXd>& reconstruction_intercepts,
-	double regularization, const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& target) {
-		auto hidden_z = Eigen::MatrixXd{ (hidden_weights * input).colwise() + hidden_intercepts };
-		auto hidden_a = Eigen::MatrixXd{ hidden_activation.compute(hidden_z) };
-		auto reconstruction_z = Eigen::MatrixXd{ (reconstruction_weights * hidden_a).colwise() + reconstruction_intercepts };
-		auto recontstruction_error = Eigen::MatrixXd{ (reconstruction_activation.compute(reconstruction_z) - target) };
-		auto reconstruction_delta = Eigen::MatrixXd{ recontstruction_error.cwiseProduct(reconstruction_activation.gradient(reconstruction_z)) };
+	MatrixXdRef hidden_weights, VectorXdRef hidden_intercepts,
+	MatrixXdRef reconstruction_weights, VectorXdRef reconstruction_intercepts,
+	double regularization, MatrixXdRef input, MatrixXdRef target) {
+		auto hidden_z = ((hidden_weights * input).colwise() + hidden_intercepts).eval();
+		auto hidden_a = (hidden_activation.compute(hidden_z)).eval();
+		auto reconstruction_z = ((reconstruction_weights * hidden_a).colwise() + reconstruction_intercepts).eval();
+		auto recontstruction_error = ((reconstruction_activation.compute(reconstruction_z) - target)).eval();
+		auto reconstruction_delta = (recontstruction_error.cwiseProduct(reconstruction_activation.gradient(reconstruction_z))).eval();
 
 		auto loss = (recontstruction_error.array().pow(2).sum() / (2 * input.cols())) +
 			regularization * hidden_weights.array().pow(2).sum() +
 			regularization * reconstruction_weights.array().pow(2).sum();
 
-		auto hidden_delta = Eigen::MatrixXd{ (reconstruction_weights.transpose() * reconstruction_delta).cwiseProduct(hidden_activation.gradient(hidden_z)) };
+		auto hidden_delta = ((reconstruction_weights.transpose() * reconstruction_delta).cwiseProduct(hidden_activation.gradient(hidden_z))).eval();
 
 		return{ loss,
 			(hidden_delta * input.transpose() / input.cols()) + regularization * 2 * hidden_weights,
@@ -68,16 +72,16 @@ namespace autoencoder
 	}
 
 	template <class HiddenActivation, class ReconstructionActivation>
-	double sparse_loss(const HiddenActivation& hidden_activation, const ReconstructionActivation& reconstruction_activation,
-	const Eigen::Ref<const Eigen::MatrixXd>& hidden_weights, const Eigen::Ref<const Eigen::VectorXd>& hidden_intercepts,
-	const Eigen::Ref<const Eigen::MatrixXd>& reconstruction_weights, const Eigen::Ref<const Eigen::VectorXd>& reconstruction_intercepts,
+	auto sparse_loss(const HiddenActivation& hidden_activation, const ReconstructionActivation& reconstruction_activation,
+	MatrixXdRef hidden_weights, VectorXdRef hidden_intercepts,
+	MatrixXdRef reconstruction_weights, VectorXdRef reconstruction_intercepts,
 	double regularization, double sparsity, double sparsity_weight,
-	const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& target) {
-		auto hidden_z = Eigen::MatrixXd{ (hidden_weights * input).colwise() + hidden_intercepts };
-		auto hidden_a = Eigen::MatrixXd{ hidden_activation.compute(hidden_z) };
-		auto reconstruction_z = Eigen::MatrixXd{ (reconstruction_weights * hidden_a).colwise() + reconstruction_intercepts };
+	MatrixXdRef input, MatrixXdRef target) {
+		auto hidden_z = ((hidden_weights * input).colwise() + hidden_intercepts).eval();
+		auto hidden_a = (hidden_activation.compute(hidden_z)).eval();
+		auto reconstruction_z = ((reconstruction_weights * hidden_a).colwise() + reconstruction_intercepts).eval();
 
-		auto rho_hat = Eigen::MatrixXd{ (hidden_a.rowwise().sum() / input.cols()).unaryExpr([](double x) { return std::abs(x - 1.0) < std::numeric_limits<double>::epsilon() ? (x + std::numeric_limits<double>::epsilon()) : x; }) };
+		auto rho_hat = ((hidden_a.rowwise().sum() / input.cols()).unaryExpr([](double x) { return abs(x - 1.0) < numeric_limits<double>::epsilon() ? (x + numeric_limits<double>::epsilon()) : x; })).eval();
 		auto sparsity_penalty = ((sparsity * (sparsity / rho_hat.array()).log()) + ((1 - sparsity) * ((1 - sparsity) / (1 - rho_hat.array())).log())).sum();
 
 		return (((reconstruction_activation.compute(reconstruction_z)) - target).array().pow(2).sum() / (2 * input.cols())) +
@@ -87,22 +91,22 @@ namespace autoencoder
 	}
 
 	template <class HiddenActivation, class ReconstructionActivation>
-	std::tuple<Eigen::MatrixXd, Eigen::VectorXd, Eigen::MatrixXd, Eigen::VectorXd>
+	tuple<MatrixXd, VectorXd, MatrixXd, VectorXd>
 	sparse_gradient(const HiddenActivation& hidden_activation, const ReconstructionActivation& reconstruction_activation,
-	const Eigen::Ref<const Eigen::MatrixXd>& hidden_weights, const Eigen::Ref<const Eigen::VectorXd>& hidden_intercepts,
-	const Eigen::Ref<const Eigen::MatrixXd>& reconstruction_weights, const Eigen::Ref<const Eigen::VectorXd>& reconstruction_intercepts,
+	MatrixXdRef hidden_weights, VectorXdRef hidden_intercepts,
+	MatrixXdRef reconstruction_weights, VectorXdRef reconstruction_intercepts,
 	double regularization, double sparsity, double sparsity_weight,
-	const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& target) {
-		auto hidden_z = Eigen::MatrixXd{ (hidden_weights * input).colwise() + hidden_intercepts };
-		auto hidden_a = Eigen::MatrixXd{ hidden_activation.compute(hidden_z) };
-		auto reconstruction_z = Eigen::MatrixXd{ (reconstruction_weights * hidden_a).colwise() + reconstruction_intercepts };
-		auto recontstruction_error = Eigen::MatrixXd{ (reconstruction_activation.compute(reconstruction_z) - target) };
-		auto reconstruction_delta = Eigen::MatrixXd{ recontstruction_error.cwiseProduct(reconstruction_activation.gradient(reconstruction_z)) };
+	MatrixXdRef input, MatrixXdRef target) {
+		auto hidden_z = ((hidden_weights * input).colwise() + hidden_intercepts).eval();
+		auto hidden_a = (hidden_activation.compute(hidden_z)).eval();
+		auto reconstruction_z = ((reconstruction_weights * hidden_a).colwise() + reconstruction_intercepts).eval();
+		auto recontstruction_error = ((reconstruction_activation.compute(reconstruction_z) - target)).eval();
+		auto reconstruction_delta = (recontstruction_error.cwiseProduct(reconstruction_activation.gradient(reconstruction_z))).eval();
 
-		auto rho_hat = Eigen::MatrixXd{ (hidden_a.rowwise().sum() / input.cols()).unaryExpr([](double x) { return std::abs(x - 1.0) < std::numeric_limits<double>::epsilon() ? (x + std::numeric_limits<double>::epsilon()) : x; }) };
-		auto sparsity_delta = Eigen::VectorXd{ (-sparsity / rho_hat.array()) + ((1 - sparsity) / (1 - rho_hat.array())) };
-		auto hidden_delta = Eigen::MatrixXd{ ((reconstruction_weights.transpose() * reconstruction_delta).colwise() +
-			(sparsity_weight * sparsity_delta)).cwiseProduct(hidden_activation.gradient(hidden_z)) };
+		auto rho_hat = ((hidden_a.rowwise().sum() / input.cols()).unaryExpr([](double x) { return abs(x - 1.0) < numeric_limits<double>::epsilon() ? (x + numeric_limits<double>::epsilon()) : x; })).eval();
+		auto sparsity_delta = ((-sparsity / rho_hat.array()) + ((1 - sparsity) / (1 - rho_hat.array()))).matrix().eval();
+		auto hidden_delta = (((reconstruction_weights.transpose() * reconstruction_delta).colwise() +
+			(sparsity_weight * sparsity_delta)).cwiseProduct(hidden_activation.gradient(hidden_z))).eval();
 
 		return{ (hidden_delta * input.transpose() / input.cols()) + regularization * 2 * hidden_weights,
 			hidden_delta.rowwise().sum() / input.cols(),
@@ -111,22 +115,22 @@ namespace autoencoder
 	}
 
 	template <class HiddenActivation, class ReconstructionActivation>
-	std::tuple<double, Eigen::MatrixXd, Eigen::VectorXd, Eigen::MatrixXd, Eigen::VectorXd>
+	tuple<double, MatrixXd, VectorXd, MatrixXd, VectorXd>
 	sparse_loss_and_gradient(const HiddenActivation& hidden_activation, const ReconstructionActivation& reconstruction_activation,
-	const Eigen::Ref<const Eigen::MatrixXd>& hidden_weights, const Eigen::Ref<const Eigen::VectorXd>& hidden_intercepts,
-	const Eigen::Ref<const Eigen::MatrixXd>& reconstruction_weights, const Eigen::Ref<const Eigen::VectorXd>& reconstruction_intercepts,
+	MatrixXdRef hidden_weights, VectorXdRef hidden_intercepts,
+	MatrixXdRef reconstruction_weights, VectorXdRef reconstruction_intercepts,
 	double regularization, double sparsity, double sparsity_weight,
-	const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::MatrixXd>& target) {
-		auto hidden_z = Eigen::MatrixXd{ (hidden_weights * input).colwise() + hidden_intercepts };
-		auto hidden_a = Eigen::MatrixXd{ hidden_activation.compute(hidden_z) };
-		auto reconstruction_z = Eigen::MatrixXd{ (reconstruction_weights * hidden_a).colwise() + reconstruction_intercepts };
-		auto recontstruction_error = Eigen::MatrixXd{ (reconstruction_activation.compute(reconstruction_z) - target) };
-		auto reconstruction_delta = Eigen::MatrixXd{ recontstruction_error.cwiseProduct(reconstruction_activation.gradient(reconstruction_z)) };
+	MatrixXdRef input, MatrixXdRef target) {
+		auto hidden_z = ((hidden_weights * input).colwise() + hidden_intercepts).eval();
+		auto hidden_a = (hidden_activation.compute(hidden_z)).eval();
+		auto reconstruction_z = ((reconstruction_weights * hidden_a).colwise() + reconstruction_intercepts).eval();
+		auto recontstruction_error = ((reconstruction_activation.compute(reconstruction_z) - target)).eval();
+		auto reconstruction_delta = (recontstruction_error.cwiseProduct(reconstruction_activation.gradient(reconstruction_z))).eval();
 
-		auto rho_hat = Eigen::MatrixXd{ (hidden_a.rowwise().sum() / input.cols()).unaryExpr([](double x) { return std::abs(x - 1.0) < std::numeric_limits<double>::epsilon() ? (x + std::numeric_limits<double>::epsilon()) : x; }) };
-		auto sparsity_delta = Eigen::VectorXd{ (-sparsity / rho_hat.array()) + ((1 - sparsity) / (1 - rho_hat.array())) };
-		auto hidden_delta = Eigen::MatrixXd{ ((reconstruction_weights.transpose() * reconstruction_delta).colwise() +
-			(sparsity_weight * sparsity_delta)).cwiseProduct(hidden_activation.gradient(hidden_z)) };
+		auto rho_hat = ((hidden_a.rowwise().sum() / input.cols()).unaryExpr([](double x) { return abs(x - 1.0) < numeric_limits<double>::epsilon() ? (x + numeric_limits<double>::epsilon()) : x; })).eval();
+		auto sparsity_delta = ((-sparsity / rho_hat.array()) + ((1 - sparsity) / (1 - rho_hat.array()))).eval().matrix();
+		auto hidden_delta = (((reconstruction_weights.transpose() * reconstruction_delta).colwise() +
+			(sparsity_weight * sparsity_delta)).cwiseProduct(hidden_activation.gradient(hidden_z))).eval();
 
 		auto loss = (recontstruction_error.array().pow(2).sum() / (2 * input.cols())) +
 			regularization * hidden_weights.array().pow(2).sum() +

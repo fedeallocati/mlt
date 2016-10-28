@@ -1,22 +1,26 @@
 #ifndef MLT_UTILS_OPTIMIZERS_STOCHASTIC_GRADIENT_DESCENT_TRAINER_HPP
 #define MLT_UTILS_OPTIMIZERS_STOCHASTIC_GRADIENT_DESCENT_TRAINER_HPP
 
-#include <vector>
 #include <algorithm>
 #include <random>
+#include <tuple>
+#include <vector>
 
 #include <Eigen/Core>
 
-#include "gradient_descent_updates.hpp"
+#include "../../defs.hpp"
 #include "../eigen.hpp"
+#include "gradient_descent_updates.hpp"
 
 namespace mlt {
 namespace utils {
 namespace optimizers {
+	using namespace eigen;
+
     // Implementation of Stochastic Gradient Descent
     // Parameters:
-    // - int epochs: number of epochs to run the descent steps through the training data
-    // - int batch_size: size of each batch when using mini-batches (set to 0 if using full batch gradient descent)
+    // - size_t batch_size: size of each batch when using mini-batches (set to 0 if using full batch gradient descent)
+    // - size_t epochs: number of epochs to run the descent steps through the training data    
     // - double learning_rate: initial learning rate
     // - double learning_rate_decay: learning_rate is multiplied by this after each epoch
     // - UpdateMethod update_method: object implementing the update strategy to use
@@ -27,9 +31,10 @@ namespace optimizers {
 			const UpdateMethod& update_method = UpdateMethod()) : _batch_size(batch_size), _epochs(epochs), _learning_rate(learning_rate), 
 			_current_learning_rate(learning_rate), _learning_rate_decay(learning_rate_decay), _update_method(update_method) {}
 
-        template <class Model, class TargetType, int TargetRows, int TargetCols>
-		typename Eigen::MatrixXd run(const Model& model, const Eigen::Ref<const Eigen::MatrixXd>& input, const Eigen::Ref<const Eigen::Matrix<TargetType, TargetRows, TargetCols>>& target, const Eigen::Ref<const Eigen::MatrixXd>& init, bool cold_start) {
+        template <class Model, class Target>
+		auto operator()(const Model& model, Features input, Target target, MatrixXdRef init, bool cold_start) {
 			assert(input.cols() == target.cols());
+
             if (cold_start) {
                 _current_learning_rate = _learning_rate;
 				_update_method.restart();
@@ -37,18 +42,17 @@ namespace optimizers {
 
             auto iters_per_epoch = _batch_size > 0 && _batch_size <= input.cols() ? input.cols() / _batch_size : 1;
 
-			Eigen::MatrixXd params = init;
+			MatrixXd params = init;
 
-			std::random_device rd;
-            std::default_random_engine generator(rd());
+			random_device rd;
+            default_random_engine generator(rd());
 
             for (auto epoch = 0; epoch < _epochs; epoch++) {
                 for (auto iter = 0; iter < iters_per_epoch; iter++) {
 					if (_batch_size > 0) {
-						Eigen::MatrixXd input_batch;
-						Eigen::Matrix<TargetType, Eigen::Dynamic, Eigen::Dynamic> target_batch;
-
-						std::tie(input_batch, target_batch) = eigen::tied_random_cols_subset(input, target, _batch_size, generator);
+						auto subset = tied_random_cols_subset(input, target, _batch_size, generator);
+						auto input_batch = get<0>(subset);
+						auto target_batch = get<1>(subset);
 
 						params += _update_method.step(_current_learning_rate, model.gradient(params, input_batch, target_batch));
 					} else {
@@ -57,12 +61,9 @@ namespace optimizers {
                 }
 
 				_current_learning_rate *= _learning_rate_decay;
-#ifdef MLT_VERBOSE
-                std::cout << "Finished epoch " << epoch + 1 << "/" << _epochs << ": cost " << model.loss(params, input, target) << std::endl;
-#endif
             }
 
-			return eigen::unravel(params, init.rows(), init.cols());
+			return params;
         }
 
 	protected:
