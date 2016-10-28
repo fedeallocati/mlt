@@ -13,9 +13,9 @@
   <PropertyGroup Label="Globals">
     <RootNamespace>$(ProjectName)</RootNamespace>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
-    <RootDir>$(ProjectDir)..\..\..\</RootDir>
-    <SrcDir>$(RootDir)src\</SrcDir>
-    <BinDir>$(RootDir)bin\$(Configuration)\</BinDir>
+    <RootDir>$(ProjectDir)../../../</RootDir>
+    <SrcDir>$(RootDir)src/</SrcDir>
+    <BinDir>$(RootDir)bin/$(Configuration)/</BinDir>
     <TargetName>mlt_$(ProjectName)</TargetName>
     <ConfigurationType>Application</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
@@ -25,14 +25,14 @@
     <InterproceduralOptimization>true</InterproceduralOptimization>
     <UseIntelTBB>true</UseIntelTBB>
   </PropertyGroup>
-  <Import Project="$(ProjectDir)$(ProjectName)\sources.props" />
+  <Import Project="$(ProjectDir)$(ProjectName)/sources.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />  
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings"/>  
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
-    <IntDir>$(RootDir)tmp\$(Configuration)\$(ProjectName)\</IntDir>
-    <IncludePath>$(Include);$(SrcDir)\mlt\;$(IncludePath)</IncludePath>
+    <IntDir>$(RootDir)tmp/$(Configuration)/$(ProjectName)/</IntDir>
+    <IncludePath>$(Include);$(SrcDir)mlt/;$(IncludePath)</IncludePath>
     <OutDir>$(BinDir)</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">

@@ -7,16 +7,16 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="$(SrcDir)$(ProjectName)\autoencoder.cpp">
+    <ClCompile Include="$(SrcDir)$(ProjectName)/autoencoder.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="$(SrcDir)$(ProjectName)\linear_regression.cpp">
+    <ClCompile Include="$(SrcDir)$(ProjectName)/linear_regression.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="$(SrcDir)$(ProjectName)\main.cpp">
+    <ClCompile Include="$(SrcDir)$(ProjectName)/main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="$(SrcDir)$(ProjectName)\principal_components_analysis.cpp">
+    <ClCompile Include="$(SrcDir)$(ProjectName)/principal_components_analysis.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

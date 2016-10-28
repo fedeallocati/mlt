@@ -4,6 +4,6 @@
     <ProjectGuid>{DB21C695-25AB-4A30-ADEC-BE976A7A5A2F}</ProjectGuid>
     <ProjectName>examples</ProjectName>
   </PropertyGroup>
-  <Import Project="..\mlt.props" />
+  <Import Project="../mlt.props" />
   <ImportGroup Label="ExtensionTargets"/>
 </Project>

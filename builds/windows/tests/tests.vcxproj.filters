@@ -7,7 +7,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="$(SrcDir)$(ProjectName)\main.cpp">
+    <ClCompile Include="$(SrcDir)$(ProjectName)/main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

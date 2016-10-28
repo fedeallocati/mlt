@@ -3,11 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "examples", "examples\examples.vcxproj", "{DB21C695-25AB-4A30-ADEC-BE976A7A5A2F}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "examples", "examples/examples.vcxproj", "{DB21C695-25AB-4A30-ADEC-BE976A7A5A2F}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "digit_recognizer", "digit_recognizer\digit_recognizer.vcxproj", "{2A481EFA-6333-443D-BF4B-E0FDA65B061F}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "digit_recognizer", "digit_recognizer/digit_recognizer.vcxproj", "{2A481EFA-6333-443D-BF4B-E0FDA65B061F}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tests", "tests\tests.vcxproj", "{9BECEBFE-EF8B-4599-AB36-DCDBDA757FB8}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tests", "tests/tests.vcxproj", "{9BECEBFE-EF8B-4599-AB36-DCDBDA757FB8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

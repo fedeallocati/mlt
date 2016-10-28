@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 	<ItemGroup>
-	    <ClCompile Include="$(SrcDir)$(ProjectName)\autoencoder.cpp" />
-	    <ClCompile Include="$(SrcDir)$(ProjectName)\linear_regression.cpp" />
-	    <ClCompile Include="$(SrcDir)$(ProjectName)\main.cpp" />
-	    <ClCompile Include="$(SrcDir)$(ProjectName)\principal_components_analysis.cpp" />
+	    <ClCompile Include="$(SrcDir)$(ProjectName)/autoencoder.cpp" />
+	    <ClCompile Include="$(SrcDir)$(ProjectName)/linear_regression.cpp" />
+	    <ClCompile Include="$(SrcDir)$(ProjectName)/main.cpp" />
+	    <ClCompile Include="$(SrcDir)$(ProjectName)/principal_components_analysis.cpp" />
   </ItemGroup>
 </Project>

@@ -4,7 +4,7 @@
     <ProjectGuid>{9BECEBFE-EF8B-4599-AB36-DCDBDA757FB8}</ProjectGuid>
     <ProjectName>tests</ProjectName>
   </PropertyGroup>
-  <Import Project="..\mlt.props" />
+  <Import Project="../mlt.props" />
   <ItemDefinitionGroup>
     <PostBuildEvent>
       <Command>"$(TargetPath)" --result_code=no --report_level=no</Command>
