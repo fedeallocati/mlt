@@ -1,4 +1,6 @@
 #define EIGEN_USE_MKL_ALL
+#define MLT_VERBOSE
+
 
 #include <vector>
 #include <iostream>
@@ -15,6 +17,7 @@
 #include "../misc.hpp"
 #include "models/transformers/sparse_autoencoder.hpp"
 #include "models/classifiers/optimizable_linear_classifier.hpp"
+#include "models/classifiers/perceptron.hpp"
 
 using namespace std;
 
@@ -28,7 +31,7 @@ vector<vector<double>> parseCsv(string file, bool skipFirstLine, char delim = ',
 	vector<vector<double>> result;
 
 	ifstream str(file.c_str());
-	string line;
+		string line;
 
 	if (skipFirstLine) {
 		getline(str, line);
@@ -145,10 +148,10 @@ int main() {
 
 	tie(features, classes) = load_training_data("train.csv");
 
-	auto output_filename = "digit_recognizer_cross_val_" + current_date_time() + ".csv";
-	ofstream output_file(output_filename);
+	//auto output_filename = "digit_recognizer_cross_val_" + current_date_time() + ".csv";
+	//ofstream output_file(output_filename);
 
-	output_file << "Type;Batch Size;Learning Rate;Weight Decay;L2 Regularization;Score" << endl;
+	//output_file << "Type;Batch Size;Learning Rate;Weight Decay;L2 Regularization;Score" << endl;
 
 	for (auto batch_size : { 512, 256, 1024, 2048 }) {
 		for (auto learning_rate : { 0.1, 0.01, 0.001, 0.0001 }) {
@@ -164,16 +167,21 @@ int main() {
 					opt_t opt1(batch_size, 10, 0.001, decay);
 					opt_t opt2(batch_size, 200, learning_rate, decay);
 
-					auto model1 = create_sparse_autoencoder(196, act, act, opt1, 3e-3, 0.1, 3);
+					//auto model1 = create_sparse_autoencoder(196, act, act, opt1, 3e-3, 0.1, 3);
+					auto model1 = create_perceptron(200, true, learning_rate, true);
 					auto model2 = OptimizableLinearClassifier<loss_t, opt_t>(loss, opt2, regularization, true);
 
-					auto score = split_crossvalidation(model1, model2, features, classes, 0.8);
-					cout << "Score for SparseAutoencoder -> Softmax " << batch_size << " " << learning_rate << " " << decay << " " << regularization << ": " << score << endl;
-					output_file << "SparseAutoencoder -> Softmax;" << batch_size << ";" << learning_rate << ";" << decay << ";" << regularization << ";" << score << endl;
+					//auto score = split_crossvalidation(model1, model2, features, classes, 0.8);
+					//cout << "Score for SparseAutoencoder -> Softmax " << batch_size << " " << learning_rate << " " << decay << " " << regularization << ": " << score << endl;
+					//output_file << "SparseAutoencoder -> Softmax;" << batch_size << ";" << learning_rate << ";" << decay << ";" << regularization << ";" << score << endl;
+
+					auto score = split_crossvalidation(model1, features, classes, 0.8);
+					cout << "Score for Perceptron " << batch_size << " " << learning_rate << " " << decay << " " << regularization << ": " << score << endl;
+					// output_file << "SparseAutoencoder -> Softmax;" << batch_size << ";" << learning_rate << ";" << decay << ";" << regularization << ";" << score << endl;
 
 					auto score2 = split_crossvalidation(model2, features, classes, 0.8);
 					cout << "Score for Softmax " << batch_size << " " << learning_rate << " " << decay << " " << regularization << ": " << score2 << endl;
-					output_file << "Softmax;" << batch_size << ";" << learning_rate << ";" << decay << ";" << regularization << ";" << score2 << endl;
+					//output_file << "Softmax;" << batch_size << ";" << learning_rate << ";" << decay << ";" << regularization << ";" << score2 << endl;
 				}
 			}
 		}

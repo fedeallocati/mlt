@@ -24,12 +24,12 @@ namespace models {
 	protected:
 		LinearModel(bool fit_intercept) : _fit_intercept(fit_intercept) {}
 
-		void _set_coefficients(MatrixXdRef coefficients) {
+		inline void _set_coefficients(MatrixXdRef coefficients) {
 			_coefficients = coefficients;
 			_fitted = true;
 		}
 
-		auto _apply_linear_transformation(Features input) const {
+		inline auto _apply_linear_transformation(Features input) const {
 			assert(_fitted);
 
 			if (_fit_intercept) {
@@ -39,14 +39,12 @@ namespace models {
 			return linear_transformation(input, _coefficients);
 		}
 
-		auto _apply_linear_transformation(Features input, MatrixXdRef coeffs) const {
-			assert(_fitted);
-
+		inline auto _apply_linear_transformation(Features input, MatrixXdRef coeffs) const {
 			if (_fit_intercept) {
-				return linear_transformation(input, _coefficients.leftCols(_coefficients.cols() - 1), _coefficients.rightCols<1>());
+				return linear_transformation(input, coeffs.leftCols(coeffs.cols() - 1), coeffs.rightCols<1>());
 			}
 			
-			return linear_transformation(input, _coefficients);
+			return linear_transformation(input, coeffs);
 		}
 
 		const bool _fit_intercept;

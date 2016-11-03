@@ -16,9 +16,9 @@ namespace models {
 	class OptimizableLinearModel : public LinearBase {
 	public:
 		Self& fit(Features input, Target target, bool cold_start = true) {
-			auto init = _fitted && !cold_start ? coefficients() : (MatrixXd::Random(target.rows(), input.rows() + (fit_intercept() ? 1 : 0)) * 0.005).eval();
-
-			_set_coefficients(_optimizer(*this, input, _to_target_matrix(target), init, cold_start));
+			auto target_matrix = _to_target_matrix(target);
+			auto init = _fitted && !cold_start ? coefficients() : (MatrixXd::Random(target_matrix.rows(), input.rows() + (fit_intercept() ? 1 : 0)) * 0.005).eval();
+			_set_coefficients(_optimizer(*this, input, target_matrix, init, cold_start));
 
 			return _self();
 		}

@@ -3,6 +3,7 @@
 
 #include "../linear_model.hpp"
 #include "classifier.hpp"
+#include "../../utils/eigen.hpp"
 
 namespace mlt {
 namespace models {
@@ -17,13 +18,13 @@ namespace classifiers {
 
 			auto result = Result(input.cols());
 			for (size_t col = 0; col < scores.cols(); col++) {
-				int max_row;
-				scores.col(col).maxCoeff(&max_row);
-				result(col) = max_row;
+				result(col) = max_row(scores.col(col));
 			}
 
 			return result;
 		}
+
+		inline auto num_classes() { assert(_fitted); return coefficients().rows(); }
 
 	protected:
 		LinearClassifier(bool fit_intercept) : LinearModel(fit_intercept) {}

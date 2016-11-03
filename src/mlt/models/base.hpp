@@ -38,7 +38,8 @@ namespace mlt {
 			assert(false);
 		}
 
-		inline MatrixXd to_target_matrix(Target target) {
+	protected:
+		inline MatrixXd _to_target_matrix(Target target) {
 			assert(false);
 		}
 

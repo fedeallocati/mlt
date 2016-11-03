@@ -60,6 +60,13 @@ namespace optimizers {
 					}
                 }
 
+#ifdef MLT_VERBOSE
+				if (epoch % 10 == 0) {
+					auto loss = model.loss(params, input, target);
+					MLT_LOG_LINE("[SGD]: Epoch " << epoch + 1 << "/" << _epochs << " Loss " << loss);
+				}
+#endif
+
 				_current_learning_rate *= _learning_rate_decay;
             }
 

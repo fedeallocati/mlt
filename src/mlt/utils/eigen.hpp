@@ -18,8 +18,8 @@ namespace eigen {
 		return Map<const MatrixXd>(x.data(), rows, cols);
 	}
 
-	template <class MatrixA, class MatrixB, typename URng = std::default_random_engine >
-	auto tied_random_cols_subset(MatrixA&& a, MatrixB&& b, size_t subset_size, URng&& rng = URng()) {
+	template <class MatrixA, class MatrixB, typename Rng = default_random_engine >
+	auto tied_random_cols_subset(MatrixA&& a, MatrixB&& b, size_t subset_size, Rng&& rng = Rng()) {
 		assert(subset_size > 0);
 		uniform_int_distribution<size_t> distribution(0, a.cols() - 1);
 
@@ -60,6 +60,12 @@ namespace eigen {
 		}
 
 		return classes_vector;
+	}
+
+	inline auto max_row(VectorXdRef x) {
+		int max_row;
+		x.maxCoeff(&max_row);
+		return max_row;
 	}
 }
 }

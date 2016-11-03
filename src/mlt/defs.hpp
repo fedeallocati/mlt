@@ -3,6 +3,14 @@
 
 #include <Eigen/Core>
 
+#ifdef MLT_VERBOSE
+#define MLT_LOG(log) cout << log;
+#else
+#define MLT_LOG(log)
+#endif
+
+#define MLT_LOG_LINE(log) MLT_LOG(log << endl);
+
 namespace mlt {
 	using namespace std;
 	using namespace Eigen;

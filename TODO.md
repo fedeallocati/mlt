@@ -9,7 +9,6 @@ List of things to implement:
 
 #### Classifiers:
 - Move current implementations to new API and input scheme: MultilayerPerceptronClassifier
-- Perceptron
 - LogisticRegression
 - KNearestNeighboursClassifier
 - GaussianDiscriminantAnalysis
